@@ -1,0 +1,16 @@
+"","ID","Description","GeneRatio","BgRatio","pvalue","p.adjust","qvalue","geneID","Count"
+"GO:0046943","GO:0046943","carboxylic acid transmembrane transporter activity","10/90","168/28275",1.59105825235453e-10,2.25183324333382e-08,1.70452191098007e-08,"Slc16a1/Slc38a3/Slc3a2/Slc38a5/Slc7a5/Slc1a1/Slc16a4/Slc7a1/Slc16a9/Slco1a4",10
+"GO:0005342","GO:0005342","organic acid transmembrane transporter activity","10/90","169/28275",1.68676647440736e-10,2.25183324333382e-08,1.70452191098007e-08,"Slc16a1/Slc38a3/Slc3a2/Slc38a5/Slc7a5/Slc1a1/Slc16a4/Slc7a1/Slc16a9/Slco1a4",10
+"GO:0008514","GO:0008514","organic anion transmembrane transporter activity","9/90","185/28275",8.09318491598793e-09,7.20293457522926e-07,5.45225089077082e-07,"Slc22a8/Slc16a1/Slc38a3/Slc3a2/Slc38a5/Slc7a5/Slc1a1/Slc7a1/Slco1a4",9
+"GO:0015179","GO:0015179","L-amino acid transmembrane transporter activity","6/90","62/28275",4.67819544555585e-08,3.12269545990853e-06,2.36371980407032e-06,"Slc38a3/Slc3a2/Slc38a5/Slc7a5/Slc1a1/Slc7a1",6
+"GO:0008509","GO:0008509","anion transmembrane transporter activity","10/90","313/28275",6.26523404375204e-08,3.34563497936359e-06,2.53247355031661e-06,"Slc22a8/Slc16a1/Slc38a3/Slc3a2/Slc38a5/Slc7a5/Ttyh2/Slc1a1/Slc7a1/Slco1a4",10
+"GO:0015175","GO:0015175","neutral amino acid transmembrane transporter activity","5/90","41/28275",1.99890237081591e-07,8.89511555013082e-06,6.7331448280115e-06,"Slc38a3/Slc3a2/Slc38a5/Slc7a5/Slc1a1",5
+"GO:0015171","GO:0015171","amino acid transmembrane transporter activity","6/90","85/28275",3.13893494910027e-07,1.19727947344253e-05,9.06278962747747e-06,"Slc38a3/Slc3a2/Slc38a5/Slc7a5/Slc1a1/Slc7a1",6
+"GO:0015291","GO:0015291","secondary active transmembrane transporter activity","8/90","242/28275",1.08646045563852e-06,3.62606177069355e-05,2.74474220371836e-05,"Slc22a8/Slc16a1/Slc38a3/Slc7a5/Slc1a1/Slc16a4/Slc16a9/Slco1a4",8
+"GO:1901474","GO:1901474","azole transmembrane transporter activity","3/90","10/28275",3.68224731946968e-06,0.000109240003810934,8.26890626126525e-05,"Slc38a3/Slc38a5/Slc7a1",3
+"GO:0022858","GO:0022858","alanine transmembrane transporter activity","3/90","12/28275",6.71969136877494e-06,0.000179415759546291,0.000135808499242609,"Slc38a3/Slc3a2/Slc38a5",3
+"GO:0015174","GO:0015174","basic amino acid transmembrane transporter activity","3/90","15/28275",1.38016625088343e-05,0.00033500398998716,0.00025358078485131,"Slc38a3/Slc38a5/Slc7a1",3
+"GO:0022804","GO:0022804","active transmembrane transporter activity","8/90","396/28275",3.93027413784137e-05,0.000874485995669705,0.000661940907425915,"Slc22a8/Slc16a1/Slc38a3/Slc7a5/Slc1a1/Slc16a4/Slc16a9/Slco1a4",8
+"GO:0008028","GO:0008028","monocarboxylic acid transmembrane transporter activity","4/90","63/28275",4.95243332001547e-05,0.00101715361264933,0.000769932953395118,"Slc16a1/Slc16a4/Slc16a9/Slco1a4",4
+"GO:0015293","GO:0015293","symporter activity","5/90","143/28275",9.59780939896015e-05,0.00183043936394454,0.00138554842451154,"Slc16a1/Slc38a3/Slc1a1/Slc16a4/Slc16a9",5
+"GO:0016661","GO:0016661","oxidoreductase activity, acting on other nitrogenous compounds as donors","2/90","10/28275",0.00044344960209465,0.00789340291728476,0.00597489990190686,"Aldh2/Cyb5r3",2

@@ -1,0 +1,154 @@
+---
+title: "02_normalisation_correction_dimensionality_reduction"
+author: "Nhi Nguyen"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+cortex_f <- readRDS(file ="saved_data/2023-03-22_cortex_pc.rds")
+cortex_f
+```
+
+```{r Normalization}
+# Normalization by deconvolution
+set.seed(1000)
+cortex_f_clusters <- quickCluster(cortex_f, block = cortex_f$Sample)
+table(cortex_f_clusters) # 15 clusters
+```
+
+```{r}
+set.seed(1000)
+
+cortex_f <- computeSumFactors(cortex_f, clusters = cortex_f_clusters)
+cortex_f
+```
+
+```{r Batch-aware normalization}
+# Also perform a batch-aware normalization using batchelor::multiBatchNorm to remove the sample effect. This step rescales counts so that they match the batch with the shallowest sequencing depth.
+set.seed(1000)
+cortex_f_mbn <- multiBatchNorm(cortex_f, batch = cortex_f$Sample)
+cortex_f_mbn
+```
+
+Dimensionality reduction
+```{r Select top highly variable genes (top 2000)}
+# HVG selection
+set.seed(1000)
+
+cortex_f_block <- modelGeneVar(cortex_f_mbn, block = cortex_f$Sample)
+
+# Combine the variances for each plate and select top 2000 HVGs
+vars_combined <- combineVar(cortex_f_block$per.block[["24_60_M"]],
+                            cortex_f_block$per.block[["18_45_M"]],
+                            cortex_f_block$per.block[["18_46_F"]],
+                            cortex_f_block$per.block[["18_47_F"]],
+                            cortex_f_block$per.block[["18_53_M"]],
+                            cortex_f_block$per.block[["3_10_M"]],
+                            cortex_f_block$per.block[["3_39_F"]],
+                            cortex_f_block$per.block[["3_8_M"]],
+                            cortex_f_block$per.block[["3_9_M"]])
+
+choose_hvgs <- getTopHVGs(vars_combined, n=2000)
+```
+
+```{r Plot variance-mean scatterplot}
+# Plot variance-mean scatterplot with the fitted trend and selected HVGs
+set.seed(1000)
+
+blocked.stats <- cortex_f_block$per.block
+
+pdf(file="result/quality_control/variance_mean_scatterplot.pdf",width=10, height=5)
+layout(matrix(1:2, nrow = 1, byrow = TRUE))
+for (i in colnames(blocked.stats)) {
+    current <- blocked.stats[[i]]
+    plot(current$mean, current$total, main = i, pch = 16, cex = 0.5,  col=rgb(0,0,0,0.2),
+        xlab="Mean of log-expression", ylab="Variance of log-expression")
+    points(current[choose_hvgs, "mean"], current[choose_hvgs, "total"], col = rgb(1,0,0,0.2))
+    curfit <- metadata(current)
+    curve(curfit$trend(x), col='dodgerblue', add=TRUE, lwd=2)}
+```
+
+```{r PCA}
+# Run the PCA, then correct the batch effect 
+set.seed(1000)
+
+cortex_f_mbn <- runPCA(cortex_f_mbn,
+                    subset_row = choose_hvgs,
+                    exprs_values = "logcounts") 
+
+cortex_f_mbn_corrected <- fastMNN(cortex_f_mbn,
+                               batch = cortex_f_mbn$Sample,
+                               subset.row = choose_hvgs)
+
+# Add the metadata to the corrected object as all other columns were removed
+cortex_f_mbn_corrected$Sample <- cortex_f_mbn$Sample
+cortex_f_mbn_corrected$sum <- cortex_f_mbn$sum
+```
+
+```{r Plot different sources of variation}
+# Plot different sources of variation as a diagnostic of the correction
+set.seed(1000)
+
+pdf(file="result/quality_control/sources_of_variation.pdf",width=10, height=10)
+gridExtra::grid.arrange(
+plotReducedDim(cortex_f_mbn, dimred = "PCA", 
+               colour_by = "Sample", point_size = 1,
+              ) + labs(title = "Uncorrected PCA - by sample"),
+plotReducedDim(cortex_f_mbn_corrected, dimred = "corrected", 
+               colour_by = "Sample", point_size = 1,
+              ) + labs(title = "Corrected PCA - by sample"),
+plotReducedDim(cortex_f_mbn, dimred = "PCA", 
+               colour_by = "sum", point_size = 1,
+              ) + labs(title = "Uncorrected PCA - by sum"),
+plotReducedDim(cortex_f_mbn_corrected, dimred = "corrected", 
+               colour_by = "sum", point_size = 1,
+              ) + labs(title = "Corrected PCA - by sum"),
+    ncol = 2)
+```
+
+```{r additional dimensionality reduction}
+k_dim <- floor(sqrt(ncol(cortex_f_mbn_corrected)))
+k_dim
+```
+k = 48
+
+```{r}
+set.seed(1000)
+dim_est <- intrinsicDimension::maxLikGlobalDimEst(reducedDim(cortex_f_mbn_corrected, "corrected"), k = k_dim)
+dim_est
+```
+Dimension estimate = 12.58732, use 13 dimensions
+
+```{r UMAP}
+# UMAP
+set.seed(9999)
+cortex_f_mbn_corrected_dim <- cortex_f_mbn_corrected
+
+reducedDim(cortex_f_mbn_corrected_dim, "UMAP") <- uwot::umap(reducedDim(cortex_f_mbn_corrected_dim, "corrected")[,1:13],
+                                                      n_neighbors = k_dim, #48
+                                                      min_dist = 1)
+
+pdf(file="result/cortex_clustering/umap.pdf",width=7, height=5)
+plotReducedDim(cortex_f_mbn_corrected_dim, dimred = "UMAP", colour_by = "Sample", point_size = 0.5)
+```
+
+```{r}
+# Plot umap with age group seperated
+cortex_f_mbn_corrected_dim_cop <- cortex_f_mbn_corrected_dim
+
+cortex_f_mbn_corrected_dim_cop$batch <- recode(cortex_f_mbn_corrected_dim_cop$batch, "18_45_M" = "Aged", "18_46_F" = "Aged", "18_47_F" = "Aged", "18_53_M" = "Aged", "3_10_M" = "Young","3_39_F" = "Young", "3_8_M" = "Young", "3_9_M" = "Young", "24_60_M" = "Old")
+
+pdf(file="result/cortex_clustering/umap_young_aged_old.pdf",width=7, height=5)
+plotReducedDim(cortex_f_mbn_corrected_dim_cop, dimred = "UMAP", colour_by = "batch", point_size = 1, text_size = 3)
+```
+
+```{r}
+saveRDS(cortex_f_mbn, file = "saved_data/2023-03-22_cortex_f_multibatch_normalized.rds")
+saveRDS(cortex_f_mbn_corrected, file = "saved_data/2023-03-22_cortex_f_mbn_corrected.rds")
+saveRDS(cortex_f_mbn_corrected_dim, file = "saved_data/2023-003-22_cortex_f_mbn_corrected_reduced_13dim.rds")
+```

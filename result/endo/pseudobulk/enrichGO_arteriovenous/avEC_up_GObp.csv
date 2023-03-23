@@ -1,0 +1,6 @@
+"","ID","Description","GeneRatio","BgRatio","pvalue","p.adjust","qvalue","geneID","Count"
+"GO:0001818","GO:0001818","negative regulation of cytokine production","5/43","296/28814",7.73306139362441e-05,0.0409291598325828,0.0298711061234288,"Sigirr/Tspo/Akap8/Pomc/Furin",5
+"GO:0032720","GO:0032720","negative regulation of tumor necrosis factor production","3/43","70/28814",0.000158040685251728,0.0409291598325828,0.0298711061234288,"Tspo/Akap8/Pomc",3
+"GO:1903556","GO:1903556","negative regulation of tumor necrosis factor superfamily cytokine production","3/43","71/28814",0.00016484173507175,0.0409291598325828,0.0298711061234288,"Tspo/Akap8/Pomc",3
+"GO:2000849","GO:2000849","regulation of glucocorticoid secretion","2/43","13/28814",0.000167914501877263,0.0409291598325828,0.0298711061234288,"Tspo/Pomc",2
+"GO:0035933","GO:0035933","glucocorticoid secretion","2/43","15/28814",0.000225610537211754,0.0439940547562921,0.0321079417168728,"Tspo/Pomc",2

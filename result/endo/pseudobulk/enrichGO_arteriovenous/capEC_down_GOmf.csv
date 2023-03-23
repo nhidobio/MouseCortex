@@ -1,0 +1,11 @@
+"","ID","Description","GeneRatio","BgRatio","pvalue","p.adjust","qvalue","geneID","Count"
+"GO:0004698","GO:0004698","calcium-dependent protein kinase C activity","4/176","16/28275",2.49055607548664e-06,0.000585011802949095,0.00052709913139312,"Prkch/Prkd2/Prkd3/Prkd1",4
+"GO:0004697","GO:0004697","protein kinase C activity","4/176","17/28275",3.2410626202166e-06,0.000585011802949095,0.00052709913139312,"Prkch/Prkd2/Prkd3/Prkd1",4
+"GO:0009931","GO:0009931","calcium-dependent protein serine/threonine kinase activity","4/176","23/28275",1.17117050784134e-05,0.000875594831825799,0.00078891617738496,"Prkch/Prkd2/Prkd3/Prkd1",4
+"GO:0010857","GO:0010857","calcium-dependent protein kinase activity","4/176","24/28275",1.39858719890609e-05,0.000875594831825799,0.00078891617738496,"Prkch/Prkd2/Prkd3/Prkd1",4
+"GO:0030695","GO:0030695","GTPase regulator activity","12/176","422/28275",1.45528226896255e-05,0.000875594831825799,0.00078891617738496,"Sipa1/Sh2d3c/Gdi2/Arhgef1/Akap13/Als2cl/Tbc1d13/Arhgef5/Rgs5/Sec23a/Llgl1/Rangap1",12
+"GO:0060589","GO:0060589","nucleoside-triphosphatase regulator activity","12/176","422/28275",1.45528226896255e-05,0.000875594831825799,0.00078891617738496,"Sipa1/Sh2d3c/Gdi2/Arhgef1/Akap13/Als2cl/Tbc1d13/Arhgef5/Rgs5/Sec23a/Llgl1/Rangap1",12
+"GO:0005096","GO:0005096","GTPase activator activity","9/176","236/28275",1.83047525191937e-05,0.000944002237061275,0.000850551658410655,"Sipa1/Gdi2/Arhgef1/Als2cl/Tbc1d13/Rgs5/Sec23a/Llgl1/Rangap1",9
+"GO:0051020","GO:0051020","GTPase binding","10/176","321/28275",3.55886744466241e-05,0.00160593893440391,0.00144696057947458,"Prkch/Gdi2/Akap13/Becn1/Rusc2/Als2cl/Tbc1d13/Rab11fip3/Llgl1/Rangap1",10
+"GO:0031267","GO:0031267","small GTPase binding","9/176","285/28275",7.92446690331989e-05,0.00317859172455387,0.00286393014400684,"Prkch/Gdi2/Akap13/Rusc2/Als2cl/Tbc1d13/Rab11fip3/Llgl1/Rangap1",9
+"GO:0004674","GO:0004674","protein serine/threonine kinase activity","11/176","441/28275",0.000107335378938789,0.00387480717969028,0.00349122443074587,"Prkch/Map3k3/Prkd2/Akap13/Prkx/Slk/Map4k3/Prkd3/Tesk1/Sik2/Prkd1",11

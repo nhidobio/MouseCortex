@@ -1,0 +1,727 @@
+---
+title: "04_endo_FunctionalClustering"
+author: "Nhi Nguyen"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+endo <- readRDS(file="saved_data/2023-03-22_endo.rds")
+endo
+```
+570 endothelial cells
+
+Repeat HVG selection, PCA, UMAP, clustering on endo population
+```{r Select top 2000 genes}
+set.seed(1000)
+endo_block <- modelGeneVar(endo, block = endo$Sample)
+
+endo_vars_combined <- combineVar(endo_block$per.block[["24_60_M"]],
+                                 endo_block$per.block[["18_45_M"]],
+                                 endo_block$per.block[["18_46_F"]],
+                                 endo_block$per.block[["18_47_F"]],
+                                 endo_block$per.block[["18_53_M"]],
+                                 endo_block$per.block[["3_10_M"]],
+                                 endo_block$per.block[["3_39_F"]],
+                                 endo_block$per.block[["3_8_M"]],
+                                 endo_block$per.block[["3_9_M"]])
+
+endo_choose_hvgs <- getTopHVGs(endo_vars_combined, n=2000)
+```
+
+```{r PCA}
+set.seed(1000)
+
+endo <- runPCA(endo,
+              subset_row = endo_choose_hvgs,
+              exprs_values = "logcounts") 
+endo_corrected <- fastMNN(endo,
+                               batch = endo$Sample,
+                               subset.row = endo_choose_hvgs)
+
+endo_corrected$Sample <- endo$Sample
+endo_corrected$sum <- endo$sum
+```
+
+```{r}
+floor(sqrt(ncol(endo_corrected)))
+# 23
+```
+
+```{r Additional dimensional reduction}
+intrinsicDimension::maxLikGlobalDimEst(reducedDim(endo_corrected, "corrected"), 
+                                       k = floor(sqrt(ncol(endo_corrected))))
+```
+dimension estimate = 19.83243  -> 20
+
+```{r UMAP}
+set.seed(100)
+endo_corrected_20dim <- endo_corrected
+reducedDim(endo_corrected_20dim, "UMAP") <- uwot::umap(reducedDim(endo_corrected_20dim, "corrected")[,1:20],
+                                                           n_neighbors = floor(sqrt(ncol(endo_corrected))),
+                                                           min_dist = 0.5)
+
+pdf(file="result/endo/endo_umap.pdf",width=7, height=5)
+plotReducedDim(endo_corrected_20dim, dimred = "UMAP", colour_by = "Sample", point_size = 1)
+```
+
+```{r Plot}
+endo_corrected_20dim_cop <- endo_corrected_20dim
+endo_corrected_20dim_cop$batch <- recode(endo_corrected_20dim_cop$batch, "24_60_M" = "Old" , "18_45_M" = "Aged", "18_46_F" = "Aged", "18_47_F" = "Aged", "18_53_M" = "Aged", "3_10_M" = "Young","3_39_F" = "Young", "3_8_M" = "Young", "3_9_M" = "Young")
+
+pdf(file="result/endo/endo_umap_young_aged_old.pdf",width=7, height=5)
+plotReducedDim(endo_corrected_20dim_cop, dimred = "UMAP", colour_by = "batch", point_size = 1.75, text_size = 3)
+```
+
+Clustering
+```{r}
+endo_corrected_20dim_red <- endo_corrected_20dim
+reducedDim(endo_corrected_20dim_red, type = "corrected") <- reducedDim(endo_corrected_20dim_red, type = "corrected")[,1:20]
+
+# Build one different SNN graph per number of neighbors
+
+endo_20dim_SNN_3 <- buildSNNGraph(endo_corrected_20dim_red, use.dimred = "corrected", type = "jaccard", k = 3)
+endo_20dim_SNN_4 <- buildSNNGraph(endo_corrected_20dim_red, use.dimred = "corrected", type = "jaccard", k = 4)
+endo_20dim_SNN_5 <- buildSNNGraph(endo_corrected_20dim_red, use.dimred = "corrected", type = "jaccard", k = 5)
+endo_20dim_SNN_6 <- buildSNNGraph(endo_corrected_20dim_red, use.dimred = "corrected", type = "jaccard", k = 6)
+endo_20dim_SNN_7 <- buildSNNGraph(endo_corrected_20dim_red, use.dimred = "corrected", type = "jaccard", k = 7)
+endo_20dim_SNN_8 <- buildSNNGraph(endo_corrected_20dim_red, use.dimred = "corrected", type = "jaccard", k = 8)
+endo_20dim_SNN_9 <- buildSNNGraph(endo_corrected_20dim_red, use.dimred = "corrected", type = "jaccard", k = 9)
+endo_20dim_SNN_10 <- buildSNNGraph(endo_corrected_20dim_red, use.dimred = "corrected", type = "jaccard", k = 10)
+endo_20dim_SNN_15 <- buildSNNGraph(endo_corrected_20dim_red, use.dimred = "corrected", type = "jaccard", k = 15)
+endo_20dim_SNN_20 <- buildSNNGraph(endo_corrected_20dim_red, use.dimred = "corrected", type = "jaccard", k = 20)
+endo_20dim_SNN_25 <- buildSNNGraph(endo_corrected_20dim_red, use.dimred = "corrected", type = "jaccard", k = 25)
+endo_20dim_SNN_30 <- buildSNNGraph(endo_corrected_20dim_red, use.dimred = "corrected", type = "jaccard", k = 30)
+endo_20dim_SNN_35 <- buildSNNGraph(endo_corrected_20dim_red, use.dimred = "corrected", type = "jaccard", k = 35)
+endo_20dim_SNN_50 <- buildSNNGraph(endo_corrected_20dim_red, use.dimred = "corrected", type = "jaccard", k = 50)
+endo_20dim_SNN_75 <- buildSNNGraph(endo_corrected_20dim_red, use.dimred = "corrected", type = "jaccard", k = 75)
+endo_20dim_SNN_100 <- buildSNNGraph(endo_corrected_20dim_red, use.dimred = "corrected", type = "jaccard", k = 100)
+endo_20dim_SNN_125 <- buildSNNGraph(endo_corrected_20dim_red, use.dimred = "corrected", type = "jaccard", k = 125)
+endo_20dim_SNN_150 <- buildSNNGraph(endo_corrected_20dim_red, use.dimred = "corrected", type = "jaccard", k = 150)
+
+
+# Clustering using the Louvain community detection method
+endo_20dim_clusters_3  <- igraph::cluster_louvain(endo_20dim_SNN_3)
+endo_20dim_clusters_4  <- igraph::cluster_louvain(endo_20dim_SNN_4)
+endo_20dim_clusters_5  <- igraph::cluster_louvain(endo_20dim_SNN_5)
+endo_20dim_clusters_6  <- igraph::cluster_louvain(endo_20dim_SNN_6)
+endo_20dim_clusters_7  <- igraph::cluster_louvain(endo_20dim_SNN_7)
+endo_20dim_clusters_8  <- igraph::cluster_louvain(endo_20dim_SNN_8)
+endo_20dim_clusters_9  <- igraph::cluster_louvain(endo_20dim_SNN_9)
+endo_20dim_clusters_10  <- igraph::cluster_louvain(endo_20dim_SNN_10)
+endo_20dim_clusters_15  <- igraph::cluster_louvain(endo_20dim_SNN_15)
+endo_20dim_clusters_20  <- igraph::cluster_louvain(endo_20dim_SNN_20)
+endo_20dim_clusters_25  <- igraph::cluster_louvain(endo_20dim_SNN_25)
+endo_20dim_clusters_30  <- igraph::cluster_louvain(endo_20dim_SNN_30)
+endo_20dim_clusters_35  <- igraph::cluster_louvain(endo_20dim_SNN_35)
+endo_20dim_clusters_50  <- igraph::cluster_louvain(endo_20dim_SNN_50)
+endo_20dim_clusters_75  <- igraph::cluster_louvain(endo_20dim_SNN_75)
+endo_20dim_clusters_100  <- igraph::cluster_louvain(endo_20dim_SNN_100)
+endo_20dim_clusters_125  <- igraph::cluster_louvain(endo_20dim_SNN_125)
+endo_20dim_clusters_150  <- igraph::cluster_louvain(endo_20dim_SNN_150)
+
+clusterings_20dim <- as.data.frame(
+  cbind(endo_20dim_clusters_3$membership,
+        endo_20dim_clusters_4$membership,
+        endo_20dim_clusters_5$membership,
+        endo_20dim_clusters_6$membership,
+        endo_20dim_clusters_7$membership,
+        endo_20dim_clusters_8$membership,
+        endo_20dim_clusters_9$membership,
+        endo_20dim_clusters_10$membership,
+        endo_20dim_clusters_15$membership,
+        endo_20dim_clusters_20$membership,
+        endo_20dim_clusters_25$membership,
+        endo_20dim_clusters_30$membership,
+        endo_20dim_clusters_35$membership,
+        endo_20dim_clusters_50$membership,
+        endo_20dim_clusters_75$membership,
+        endo_20dim_clusters_100$membership,
+        endo_20dim_clusters_125$membership,
+        endo_20dim_clusters_150$membership))
+
+# Ordering them with a number for clustree
+
+colnames(clusterings_20dim) <- c("SNN_3","SNN_4","SNN_5","SNN_6","SNN_7","SNN_8","SNN_9","SNN_10","SNN_15","SNN_20","SNN_25","SNN_30","SNN_35","SNN_50","SNN_75","SNN_100","SNN_125","SNN_150")
+
+pdf(file="result/endo/endo_clustering.pdf",width=10, height=10)
+clustree(clusterings_20dim, prefix = "SNN_", layout = "sugiyama")
+```
+
+```{r Assign cluster ID}
+colData(endo_corrected_20dim_red)$clustering_20 <- factor(clusterings_20dim$SNN_35)
+```
+
+```{r Plot cluster on UMAP}
+pdf(file="result/endo/endo_clusters_on_umap_SNN_35.pdf",width=7, height=5)
+plotReducedDim(endo_corrected_20dim_red, dimred = "UMAP", colour_by = "clustering_20", point_size = 2, text_by = "clustering_20")
+```
+
+```{r Reduce dimensions}
+reducedDim(endo, "UMAP") <- reducedDim(endo_corrected_20dim_red, "UMAP")
+colData(endo)$clustering_20 <- colData(endo_corrected_20dim_red)$clustering_20
+rownames(endo) <- rowData(endo)$Symbol
+```
+
+```{r Marker detection}
+# Detect markers driving cluster separation
+colLabels(endo) <- colData(endo_corrected_20dim_red)$clustering_20
+endo_markers <- findMarkers(endo, direction="up", lfc=1)
+endo_markers
+```
+
+```{r Pathway analysis}
+# Top 50 markers
+
+endo1_markers <- endo_markers[[1]]
+endo2_markers <- endo_markers[[2]]
+endo3_markers <- endo_markers[[3]]
+
+endo1_markers$ID <- rownames(endo1_markers)
+endo2_markers$ID <- rownames(endo2_markers)
+endo3_markers$ID <- rownames(endo3_markers)
+
+endo1_markers_FC <- endo1_markers[,4]
+endo2_markers_FC <- endo2_markers[,4]
+endo3_markers_FC <- endo3_markers[,4]
+
+names(endo1_markers_FC) <- as.character(endo1_markers$ID)
+names(endo2_markers_FC) <- as.character(endo2_markers$ID)
+names(endo3_markers_FC) <- as.character(endo3_markers$ID)
+
+endo1_markers_FC <- sort(endo1_markers_FC, decreasing = TRUE)
+endo2_markers_FC <- sort(endo2_markers_FC, decreasing = TRUE)
+endo3_markers_FC <- sort(endo3_markers_FC, decreasing = TRUE)
+
+markers_num <- 50
+
+endo1_top50markers_FC <- endo1_markers_FC[1:markers_num]
+endo2_top50markers_FC <- endo2_markers_FC[1:markers_num]
+endo3_top50markers_FC <- endo3_markers_FC[1:markers_num]
+
+endo1_top50markers <- bitr(names(endo1_top50markers_FC), fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+endo2_top50markers <- bitr(names(endo2_top50markers_FC), fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+endo3_top50markers <- bitr(names(endo3_top50markers_FC), fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+
+endo1_top50markers <- endo1_top50markers$ENTREZID
+endo2_top50markers <- endo2_top50markers$ENTREZID
+endo3_top50markers <- endo3_top50markers$ENTREZID
+```
+
+Enrichment analysis
+# Perform pathway analysis for each endo subpopulation
+
+```{r endo1GObp}
+endo1GObp <- enrichGO(gene = endo1_top50markers,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "BP",
+                      pAdjustMethod = "BH",
+                      pvalueCutoff  = 0.01,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+write.csv(endo1GObp, file = paste(dir, "result/endo/enrichGO_functional/top50markers/endo1GObp.csv", sep="/"))
+pdf(file=paste(dir,"result/endo/enrichGO_functional/top50markers/endo1GObp.pdf",sep="/"),width=15, height=10)
+barplot(endo1GObp, showCategory=20) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+```
+
+```{r endo1GOmf}
+endo1GOmf <- enrichGO(gene = endo1_top50markers,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "MF",
+                      pAdjustMethod = "BH",
+                      pvalueCutoff  = 0.01,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+write.csv(endo1GOmf, file = paste(dir, "result/endo/enrichGO_functional/top50markers/endo1GOmf.csv", sep="/"))
+pdf(file=paste(dir,"result/endo/enrichGO_functional/top50markers/endo1GOmf.pdf",sep="/"),width=10, height=7)
+barplot(endo1GOmf, showCategory=20) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+```
+
+```{r endo1GOcc}
+endo1GOcc <- enrichGO(gene = endo1_top50markers,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "CC",
+                      pAdjustMethod = "BH",
+                      pvalueCutoff  = 0.01,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+write.csv(endo1GOcc, file = paste(dir, "result/endo/enrichGO_functional/top50markers/endo1GOcc.csv", sep="/"))
+pdf(file=paste(dir,"result/endo/enrichGO_functional/top50markers/endo1GOcc.pdf",sep="/"),width=10, height=7)
+barplot(endo1GOcc, showCategory=20) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+```
+
+```{r endo1GO total}
+ write.csv(endo1_markers_FC[1:markers_num], file = paste(dir, "result/endo/enrichGO_functional/top50markers/endo1.csv", sep="/"))
+```
+
+```{r endo2GObp}
+endo2GObp <- enrichGO(gene = endo2_top50markers,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "BP",
+                      pAdjustMethod = "BH",
+                      pvalueCutoff  = 0.01,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+write.csv(endo2GObp, file = paste(dir, "result/endo/enrichGO_functional/top50markers/endo2GObp.csv", sep="/"))
+pdf(file=paste(dir,"result/endo/enrichGO_functional/top50markers/endo2GObp.pdf",sep="/"),width=15, height=10)
+barplot(endo2GObp, showCategory=20) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+```
+
+```{r endo2GOmf}
+endo2GOmf <- enrichGO(gene = endo2_top50markers,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "MF",
+                      pAdjustMethod = "BH",
+                      pvalueCutoff  = 0.01,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+write.csv(endo2GOmf, file = paste(dir, "result/endo/enrichGO_functional/top50markers/endo2GOmf.csv", sep="/"))
+pdf(file=paste(dir,"result/endo/enrichGO_functional/top50markers/endo2GOmf.pdf",sep="/"),width=10, height=7)
+barplot(endo2GOmf, showCategory=20) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+```
+
+```{r endo2GOcc}
+endo2GOcc <- enrichGO(gene = endo2_top50markers,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "CC",
+                      pAdjustMethod = "BH",
+                      pvalueCutoff  = 0.01,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+write.csv(endo2GOcc, file = paste(dir, "result/endo/enrichGO_functional/top50markers/endo2GOcc.csv", sep="/"))
+pdf(file=paste(dir,"result/endo/enrichGO_functional/top50markers/endo2GOcc.pdf",sep="/"),width=10, height=7)
+barplot(endo2GOcc, showCategory=20) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+```
+
+```{r endo2GO total}
+write.csv(endo2_markers_FC[1:markers_num], file = paste(dir,"result/endo/enrichGO_functional/top50markers/endo2.csv",sep="/"))
+```
+
+```{r endo3GObp}
+endo3GObp <- enrichGO(gene = endo3_top50markers,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "BP",
+                      pAdjustMethod = "BH",
+                      pvalueCutoff  = 0.01,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+write.csv(endo3GObp, file = paste(dir, "result/endo/enrichGO_functional/top50markers/endo3GObp.csv", sep="/"))
+pdf(file = paste(dir,"result/endo/enrichGO_functional/top50markers/endo3GObp.pdf",sep="/"),width=15, height=10)
+barplot(endo3GObp, showCategory=20) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=16))
+```
+
+```{r endo3GOmf}
+endo3GOmf <- enrichGO(gene = endo3_top50markers,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "MF",
+                      pAdjustMethod = "BH",
+                      pvalueCutoff  = 0.01,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+write.csv(endo3GOmf, file = paste(dir, "result/endo/enrichGO_functional/top50markers/endo3GOmf.csv", sep="/"))
+pdf(file = paste(dir,"result/endo/enrichGO_functional/top50markers/endo3GOmf.pdf",sep="/"),width=10, height=7)
+barplot(endo3GOmf, showCategory=20) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+```
+
+```{r endo3GOcc}
+endo3GOcc <- enrichGO(gene = endo3_top50markers,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "CC",
+                      pAdjustMethod = "BH",
+                      pvalueCutoff  = 0.01,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+write.csv(endo3GOcc, file = paste(dir, "result/endo/enrichGO_functional/top50markers/endo3GOcc.csv", sep="/"))
+pdf(file=paste(dir,"result/endo/enrichGO_functional/top50markers/endo3GOcc.pdf",sep="/"),width=10, height=7)
+barplot(endo3GOcc, showCategory=20) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+```
+
+```{r endo3GO total}
+write.csv(endo3_markers_FC[1:markers_num], file = paste(dir,"result/endo/enrichGO_functional/top50markers/endo3.csv",sep="/"))
+```
+
+```{r Pathway analysis}
+# Top 100 markers
+
+endo1_markers <- endo_markers[[1]]
+endo2_markers <- endo_markers[[2]]
+endo3_markers <- endo_markers[[3]]
+
+endo1_markers$ID <- rownames(endo1_markers)
+endo2_markers$ID <- rownames(endo2_markers)
+endo3_markers$ID <- rownames(endo3_markers)
+
+endo1_markers_FC <- endo1_markers[,4]
+endo2_markers_FC <- endo2_markers[,4]
+endo3_markers_FC <- endo3_markers[,4]
+
+names(endo1_markers_FC) <- as.character(endo1_markers$ID)
+names(endo2_markers_FC) <- as.character(endo2_markers$ID)
+names(endo3_markers_FC) <- as.character(endo3_markers$ID)
+
+endo1_markers_FC <- sort(endo1_markers_FC, decreasing = TRUE)
+endo2_markers_FC <- sort(endo2_markers_FC, decreasing = TRUE)
+endo3_markers_FC <- sort(endo3_markers_FC, decreasing = TRUE)
+
+markers_num <- 100
+
+endo1_top100markers_FC <- endo1_markers_FC[1:markers_num]
+endo2_top100markers_FC <- endo2_markers_FC[1:markers_num]
+endo3_top100markers_FC <- endo3_markers_FC[1:markers_num]
+
+endo1_top100markers <- bitr(names(endo1_top100markers_FC), fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+endo2_top100markers <- bitr(names(endo2_top100markers_FC), fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+endo3_top100markers <- bitr(names(endo3_top100markers_FC), fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+
+endo1_top100markers <- endo1_top100markers$ENTREZID
+endo2_top100markers <- endo2_top100markers$ENTREZID
+endo3_top100markers <- endo3_top100markers$ENTREZID
+```
+
+Enrichment analysis
+# Perform pathway analysis for each endo subpopulation
+
+```{r endo1GObp}
+endo1GObp <- enrichGO(gene = endo1_top100markers,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "BP",
+                      pAdjustMethod = "BH",
+                      pvalueCutoff  = 0.01,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+write.csv(endo1GObp, file = paste(dir, "result/endo/enrichGO_functional/top100markers/endo1GObp.csv", sep="/"))
+pdf(file=paste(dir,"result/endo/enrichGO_functional/top100markers/endo1GObp.pdf",sep="/"),width=15, height=10)
+barplot(endo1GObp, showCategory=20) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+```
+
+```{r endo1GOmf}
+endo1GOmf <- enrichGO(gene = endo1_top100markers,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "MF",
+                      pAdjustMethod = "BH",
+                      pvalueCutoff  = 0.01,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+write.csv(endo1GOmf, file = paste(dir, "result/endo/enrichGO_functional/top100markers/endo1GOmf.csv", sep="/"))
+pdf(file=paste(dir,"result/endo/enrichGO_functional/top100markers/endo1GOmf.pdf",sep="/"),width=10, height=7)
+barplot(endo1GOmf, showCategory=20) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+```
+
+```{r endo1GOcc}
+endo1GOcc <- enrichGO(gene = endo1_top100markers,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "CC",
+                      pAdjustMethod = "BH",
+                      pvalueCutoff  = 0.01,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+write.csv(endo1GOcc, file = paste(dir, "result/endo/enrichGO_functional/top100markers/endo1GOcc.csv", sep="/"))
+pdf(file=paste(dir,"result/endo/enrichGO_functional/top100markers/endo1GOcc.pdf",sep="/"),width=10, height=7)
+barplot(endo1GOcc, showCategory=20) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+```
+
+```{r endo1GO total}
+ write.csv(endo1_markers_FC[1:markers_num], file = paste(dir, "result/endo/enrichGO_functional/top100markers/endo1.csv", sep="/"))
+```
+
+```{r endo2GObp}
+endo2GObp <- enrichGO(gene = endo2_top100markers,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "BP",
+                      pAdjustMethod = "BH",
+                      pvalueCutoff  = 0.01,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+write.csv(endo2GObp, file = paste(dir, "result/endo/enrichGO_functional/top100markers/endo2GObp.csv", sep="/"))
+pdf(file=paste(dir,"result/endo/enrichGO_functional/top100markers/endo2GObp.pdf",sep="/"),width=15, height=10)
+barplot(endo2GObp, showCategory=20) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+```
+
+```{r endo2GOmf}
+endo2GOmf <- enrichGO(gene = endo2_top100markers,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "MF",
+                      pAdjustMethod = "BH",
+                      pvalueCutoff  = 0.01,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+write.csv(endo2GOmf, file = paste(dir, "result/endo/enrichGO_functional/top100markers/endo2GOmf.csv", sep="/"))
+pdf(file=paste(dir,"result/endo/enrichGO_functional/top100markers/endo2GOmf.pdf",sep="/"),width=10, height=7)
+barplot(endo2GOmf, showCategory=20) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+```
+
+```{r endo2GOcc}
+endo2GOcc <- enrichGO(gene = endo2_top100markers,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "CC",
+                      pAdjustMethod = "BH",
+                      pvalueCutoff  = 0.01,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+write.csv(endo2GOcc, file = paste(dir, "result/endo/enrichGO_functional/top100markers/endo2GOcc.csv", sep="/"))
+pdf(file=paste(dir,"result/endo/enrichGO_functional/top100markers/endo2GOcc.pdf",sep="/"),width=10, height=7)
+barplot(endo2GOcc, showCategory=20) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+```
+
+```{r endo2GO total}
+write.csv(endo2_markers_FC[1:markers_num], file = paste(dir,"result/endo/enrichGO_functional/top100markers/endo2.csv",sep="/"))
+```
+
+```{r endo3GObp}
+endo3GObp <- enrichGO(gene = endo3_top100markers,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "BP",
+                      pAdjustMethod = "BH",
+                      pvalueCutoff  = 0.01,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+write.csv(endo3GObp, file = paste(dir, "result/endo/enrichGO_functional/top100markers/endo3GObp.csv", sep="/"))
+pdf(file = paste(dir,"result/endo/enrichGO_functional/top100markers/endo3GObp.pdf",sep="/"),width=15, height=10)
+barplot(endo3GObp, showCategory=20) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=16))
+```
+
+```{r endo3GOmf}
+endo3GOmf <- enrichGO(gene = endo3_top100markers,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "MF",
+                      pAdjustMethod = "BH",
+                      pvalueCutoff  = 0.01,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+write.csv(endo3GOmf, file = paste(dir, "result/endo/enrichGO_functional/top100markers/endo3GOmf.csv", sep="/"))
+pdf(file = paste(dir,"result/endo/enrichGO_functional/top100markers/endo3GOmf.pdf",sep="/"),width=10, height=7)
+barplot(endo3GOmf, showCategory=20) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+```
+
+```{r endo3GOcc}
+endo3GOcc <- enrichGO(gene = endo3_top100markers,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "CC",
+                      pAdjustMethod = "BH",
+                      pvalueCutoff  = 0.01,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+write.csv(endo3GOcc, file = paste(dir, "result/endo/enrichGO_functional/top100markers/endo3GOcc.csv", sep="/"))
+pdf(file=paste(dir,"result/endo/enrichGO_functional/top100markers/endo3GOcc.pdf",sep="/"),width=10, height=7)
+barplot(endo3GOcc, showCategory=20) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+```
+
+```{r endo3GO total}
+write.csv(endo3_markers_FC[1:markers_num], file = paste(dir,"result/endo/enrichGO_functional/top100markers/endo3.csv",sep="/"))
+```
+
+```{r Pathway analysis}
+# Top 200 markers
+
+endo1_markers <- endo_markers[[1]]
+endo2_markers <- endo_markers[[2]]
+endo3_markers <- endo_markers[[3]]
+
+endo1_markers$ID <- rownames(endo1_markers)
+endo2_markers$ID <- rownames(endo2_markers)
+endo3_markers$ID <- rownames(endo3_markers)
+
+endo1_markers_FC <- endo1_markers[,4]
+endo2_markers_FC <- endo2_markers[,4]
+endo3_markers_FC <- endo3_markers[,4]
+
+names(endo1_markers_FC) <- as.character(endo1_markers$ID)
+names(endo2_markers_FC) <- as.character(endo2_markers$ID)
+names(endo3_markers_FC) <- as.character(endo3_markers$ID)
+
+endo1_markers_FC <- sort(endo1_markers_FC, decreasing = TRUE)
+endo2_markers_FC <- sort(endo2_markers_FC, decreasing = TRUE)
+endo3_markers_FC <- sort(endo3_markers_FC, decreasing = TRUE)
+
+markers_num <- 200
+
+endo1_top200markers_FC <- endo1_markers_FC[1:markers_num]
+endo2_top200markers_FC <- endo2_markers_FC[1:markers_num]
+endo3_top200markers_FC <- endo3_markers_FC[1:markers_num]
+
+endo1_top200markers <- bitr(names(endo1_top200markers_FC), fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+endo2_top200markers <- bitr(names(endo2_top200markers_FC), fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+endo3_top200markers <- bitr(names(endo3_top200markers_FC), fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+
+endo1_top200markers <- endo1_top200markers$ENTREZID
+endo2_top200markers <- endo2_top200markers$ENTREZID
+endo3_top200markers <- endo3_top200markers$ENTREZID
+```
+
+Enrichment analysis
+# Perform pathway analysis for each endo subpopulation
+
+```{r endo1GObp}
+endo1GObp <- enrichGO(gene = endo1_top200markers,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "BP",
+                      pAdjustMethod = "BH",
+                      pvalueCutoff  = 0.01,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+write.csv(endo1GObp, file = paste(dir, "result/endo/enrichGO_functional/top200markers/endo1GObp.csv", sep="/"))
+pdf(file=paste(dir,"result/endo/enrichGO_functional/top200markers/endo1GObp.pdf",sep="/"),width=15, height=10)
+barplot(endo1GObp, showCategory=20) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+```
+
+```{r endo1GOmf}
+endo1GOmf <- enrichGO(gene = endo1_top200markers,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "MF",
+                      pAdjustMethod = "BH",
+                      pvalueCutoff  = 0.01,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+write.csv(endo1GOmf, file = paste(dir, "result/endo/enrichGO_functional/top200markers/endo1GOmf.csv", sep="/"))
+pdf(file=paste(dir,"result/endo/enrichGO_functional/top200markers/endo1GOmf.pdf",sep="/"),width=10, height=7)
+barplot(endo1GOmf, showCategory=20) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+```
+
+```{r endo1GOcc}
+endo1GOcc <- enrichGO(gene = endo1_top200markers,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "CC",
+                      pAdjustMethod = "BH",
+                      pvalueCutoff  = 0.01,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+write.csv(endo1GOcc, file = paste(dir, "result/endo/enrichGO_functional/top200markers/endo1GOcc.csv", sep="/"))
+pdf(file=paste(dir,"result/endo/enrichGO_functional/top200markers/endo1GOcc.pdf",sep="/"),width=10, height=7)
+barplot(endo1GOcc, showCategory=20) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+```
+
+```{r endo1GO total}
+ write.csv(endo1_markers_FC[1:markers_num], file = paste(dir, "result/endo/enrichGO_functional/top200markers/endo1.csv", sep="/"))
+```
+
+```{r endo2GObp}
+endo2GObp <- enrichGO(gene = endo2_top200markers,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "BP",
+                      pAdjustMethod = "BH",
+                      pvalueCutoff  = 0.01,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+write.csv(endo2GObp, file = paste(dir, "result/endo/enrichGO_functional/top200markers/endo2GObp.csv", sep="/"))
+pdf(file=paste(dir,"result/endo/enrichGO_functional/top200markers/endo2GObp.pdf",sep="/"),width=15, height=10)
+barplot(endo2GObp, showCategory=20) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+```
+
+```{r endo2GOmf}
+endo2GOmf <- enrichGO(gene = endo2_top200markers,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "MF",
+                      pAdjustMethod = "BH",
+                      pvalueCutoff  = 0.01,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+write.csv(endo2GOmf, file = paste(dir, "result/endo/enrichGO_functional/top200markers/endo2GOmf.csv", sep="/"))
+pdf(file=paste(dir,"result/endo/enrichGO_functional/top200markers/endo2GOmf.pdf",sep="/"),width=10, height=7)
+barplot(endo2GOmf, showCategory=20) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+```
+
+```{r endo2GOcc}
+endo2GOcc <- enrichGO(gene = endo2_top200markers,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "CC",
+                      pAdjustMethod = "BH",
+                      pvalueCutoff  = 0.01,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+write.csv(endo2GOcc, file = paste(dir, "result/endo/enrichGO_functional/top200markers/endo2GOcc.csv", sep="/"))
+pdf(file=paste(dir,"result/endo/enrichGO_functional/top200markers/endo2GOcc.pdf",sep="/"),width=10, height=7)
+barplot(endo2GOcc, showCategory=20) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+```
+
+```{r endo2GO total}
+write.csv(endo2_markers_FC[1:markers_num], file = paste(dir,"result/endo/enrichGO_functional/top200markers/endo2.csv",sep="/"))
+```
+
+```{r endo3GObp}
+endo3GObp <- enrichGO(gene = endo3_top200markers,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "BP",
+                      pAdjustMethod = "BH",
+                      pvalueCutoff  = 0.01,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+write.csv(endo3GObp, file = paste(dir, "result/endo/enrichGO_functional/top200markers/endo3GObp.csv", sep="/"))
+pdf(file = paste(dir,"result/endo/enrichGO_functional/top200markers/endo3GObp.pdf",sep="/"),width=15, height=10)
+barplot(endo3GObp, showCategory=20) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=16))
+```
+
+```{r endo3GOmf}
+endo3GOmf <- enrichGO(gene = endo3_top200markers,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "MF",
+                      pAdjustMethod = "BH",
+                      pvalueCutoff  = 0.01,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+write.csv(endo3GOmf, file = paste(dir, "result/endo/enrichGO_functional/top200markers/endo3GOmf.csv", sep="/"))
+pdf(file = paste(dir,"result/endo/enrichGO_functional/top200markers/endo3GOmf.pdf",sep="/"),width=10, height=7)
+barplot(endo3GOmf, showCategory=20) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+```
+
+```{r endo3GOcc}
+endo3GOcc <- enrichGO(gene = endo3_top200markers,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "CC",
+                      pAdjustMethod = "BH",
+                      pvalueCutoff  = 0.01,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+write.csv(endo3GOcc, file = paste(dir, "result/endo/enrichGO_functional/top200markers/endo3GOcc.csv", sep="/"))
+pdf(file=paste(dir,"result/endo/enrichGO_functional/top200markers/endo3GOcc.pdf",sep="/"),width=10, height=7)
+barplot(endo3GOcc, showCategory=20) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+```
+
+```{r endo3GO total}
+write.csv(endo3_markers_FC[1:markers_num], file = paste(dir,"result/endo/enrichGO_functional/top200markers/endo3.csv",sep="/"))
+```
+
+## HERE
+```{r Label clusters}
+cluster_labels = data.frame("cluster" = 1:3, "label" = c("ECM-Reorganizing BEC","Transporting BEC","Migrating-Angiogenic BEC"))
+
+rownames(cluster_labels) <- cluster_labels$clustering_20
+colData(endo_corrected_20dim_red)$cluster_labels <- cluster_labels[as.character(colData(endo_corrected_20dim_red)$clustering_20), "label"]
+
+pdf(file="result/endo/endo_labelled_clusters_SNN_35.pdf",width=7, height=5)
+plotReducedDim(endo_corrected_20dim_red, dimred = "UMAP", colour_by = "cluster_labels", text_by = "clustering_20", point_size = 2, text_size = 3)
+
+write.csv(table(endo_corrected_20dim_red$cluster_labels), file="result/endo/number_cells_per_functional_clustering.csv")
+```
+
+```{r BIOLOGICAL INTERPRETATION}
+old3 <- endo_corrected_20dim_red[,endo_corrected_20dim_red$Sample%in%c("24_60_M")]
+aged3 <- endo_corrected_20dim_red[,endo_corrected_20dim_red$Sample%in%c("18_45_M", "18_46_F", "18_47_F", "18_53_M")]
+young3 <- endo_corrected_20dim_red[,endo_corrected_20dim_red$Sample%in%c("3_10_M", "3_39_F", "3_8_M", "3_9_M")]
+
+young3 <- as.data.frame(table(young3$cluster_labels))
+colnames(young3) <- c("functional_group","young")
+aged3 <- as.data.frame(table(aged3$cluster_labels))
+colnames(aged3) <- c("functional_group","aged")
+old3 <- as.data.frame(table(old3$cluster_labels))
+colnames(old3) <- c("functional_group","old")
+
+#put all data frames into list
+functional_group_per_age_group <- list(young3, aged3, old3)
+
+#merge all data frames in list
+functional_group_per_age_group <- functional_group_per_age_group %>% reduce(full_join, by='functional_group')
+
+functional_group_per_age_group
+
+write.csv(functional_group_per_age_group, file = "result/endo/functional_group_per_age_group.csv")
+```
+
+```{r}
+saveRDS(endo,file="saved_data/2023-03-22_endo_functional_clustering.rds")
+saveRDS(endo_corrected_20dim_red,file="saved_data/2023-03-22_endo_dimensionality_reduction_clustered.rds")
+```
+

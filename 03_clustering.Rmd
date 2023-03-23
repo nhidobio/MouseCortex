@@ -1,0 +1,384 @@
+---
+title: "03_clustering"
+author: "Nhi Nguyen"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+cortex_f_mbn <- readRDS(file = "saved_data/2023-03-22_cortex_f_multibatch_normalized.rds")
+cortex_f_mbn_corrected <- readRDS(file = "saved_data/2023-03-22_cortex_f_mbn_corrected.rds")
+cortex_f_mbn_corrected_dim <- readRDS(file = "saved_data/2023-003-22_cortex_f_mbn_corrected_reduced_13dim.rds")
+```
+
+```{r Clustering}
+cortex_f_mbn_corrected_dim_red <- cortex_f_mbn_corrected_dim
+reducedDim(cortex_f_mbn_corrected_dim_red, type = "corrected") <- reducedDim(cortex_f_mbn_corrected_dim_red, type = "corrected")[,1:13]
+
+# Build one different SNN graph per number of neighbors
+# Use Jaccard-weighted edges
+# play around with value of k
+cortex_f_dim_SNN_5 <- buildSNNGraph(cortex_f_mbn_corrected_dim_red, use.dimred = "corrected", type = "jaccard", k = 5)
+cortex_f_dim_SNN_10 <- buildSNNGraph(cortex_f_mbn_corrected_dim_red, use.dimred = "corrected", type = "jaccard", k = 10)
+cortex_f_dim_SNN_15 <- buildSNNGraph(cortex_f_mbn_corrected_dim_red, use.dimred = "corrected", type = "jaccard", k = 15)
+cortex_f_dim_SNN_20 <- buildSNNGraph(cortex_f_mbn_corrected_dim_red, use.dimred = "corrected", type = "jaccard", k = 20)
+cortex_f_dim_SNN_25 <- buildSNNGraph(cortex_f_mbn_corrected_dim_red, use.dimred = "corrected", type = "jaccard", k = 25)
+cortex_f_dim_SNN_30 <- buildSNNGraph(cortex_f_mbn_corrected_dim_red, use.dimred = "corrected", type = "jaccard", k = 30)
+cortex_f_dim_SNN_35 <- buildSNNGraph(cortex_f_mbn_corrected_dim_red, use.dimred = "corrected", type = "jaccard", k = 35)
+cortex_f_dim_SNN_40 <- buildSNNGraph(cortex_f_mbn_corrected_dim_red, use.dimred = "corrected", type = "jaccard", k = 40)
+cortex_f_dim_SNN_50 <- buildSNNGraph(cortex_f_mbn_corrected_dim_red, use.dimred = "corrected", type = "jaccard", k = 50)
+cortex_f_dim_SNN_60 <- buildSNNGraph(cortex_f_mbn_corrected_dim_red, use.dimred = "corrected", type = "jaccard", k = 60)
+cortex_f_dim_SNN_70 <- buildSNNGraph(cortex_f_mbn_corrected_dim_red, use.dimred = "corrected", type = "jaccard", k = 70)
+cortex_f_dim_SNN_80 <- buildSNNGraph(cortex_f_mbn_corrected_dim_red, use.dimred = "corrected", type = "jaccard", k = 80)
+cortex_f_dim_SNN_90 <- buildSNNGraph(cortex_f_mbn_corrected_dim_red, use.dimred = "corrected", type = "jaccard", k = 90)
+cortex_f_dim_SNN_100 <- buildSNNGraph(cortex_f_mbn_corrected_dim_red, use.dimred = "corrected", type = "jaccard", k = 100)
+cortex_f_dim_SNN_120 <- buildSNNGraph(cortex_f_mbn_corrected_dim_red, use.dimred = "corrected", type = "jaccard", k = 120)
+cortex_f_dim_SNN_140 <- buildSNNGraph(cortex_f_mbn_corrected_dim_red, use.dimred = "corrected", type = "jaccard", k = 140)
+cortex_f_dim_SNN_160 <- buildSNNGraph(cortex_f_mbn_corrected_dim_red, use.dimred = "corrected", type = "jaccard", k = 160)
+cortex_f_dim_SNN_180 <- buildSNNGraph(cortex_f_mbn_corrected_dim_red, use.dimred = "corrected", type = "jaccard", k = 180)
+cortex_f_dim_SNN_200 <- buildSNNGraph(cortex_f_mbn_corrected_dim_red, use.dimred = "corrected", type = "jaccard", k = 200)
+
+# Clustering using the Louvain community detection method
+cortex_f_dim_clusters_5  <- igraph::cluster_louvain(cortex_f_dim_SNN_5)
+cortex_f_dim_clusters_10  <- igraph::cluster_louvain(cortex_f_dim_SNN_10)
+cortex_f_dim_clusters_15  <- igraph::cluster_louvain(cortex_f_dim_SNN_15)
+cortex_f_dim_clusters_20  <- igraph::cluster_louvain(cortex_f_dim_SNN_20)
+cortex_f_dim_clusters_25  <- igraph::cluster_louvain(cortex_f_dim_SNN_25)
+cortex_f_dim_clusters_30  <- igraph::cluster_louvain(cortex_f_dim_SNN_30)
+cortex_f_dim_clusters_35  <- igraph::cluster_louvain(cortex_f_dim_SNN_35)
+cortex_f_dim_clusters_40  <- igraph::cluster_louvain(cortex_f_dim_SNN_40)
+cortex_f_dim_clusters_50  <- igraph::cluster_louvain(cortex_f_dim_SNN_50)
+cortex_f_dim_clusters_60  <- igraph::cluster_louvain(cortex_f_dim_SNN_60)
+cortex_f_dim_clusters_70  <- igraph::cluster_louvain(cortex_f_dim_SNN_70)
+cortex_f_dim_clusters_80  <- igraph::cluster_louvain(cortex_f_dim_SNN_80)
+cortex_f_dim_clusters_90  <- igraph::cluster_louvain(cortex_f_dim_SNN_90)
+cortex_f_dim_clusters_100  <- igraph::cluster_louvain(cortex_f_dim_SNN_100)
+cortex_f_dim_clusters_120  <- igraph::cluster_louvain(cortex_f_dim_SNN_120)
+cortex_f_dim_clusters_140  <- igraph::cluster_louvain(cortex_f_dim_SNN_140)
+cortex_f_dim_clusters_160  <- igraph::cluster_louvain(cortex_f_dim_SNN_160)
+cortex_f_dim_clusters_180  <- igraph::cluster_louvain(cortex_f_dim_SNN_180)
+cortex_f_dim_clusters_200  <- igraph::cluster_louvain(cortex_f_dim_SNN_200)
+
+
+# HERE TOO
+clusterings_dim <- as.data.frame(
+  cbind(cortex_f_dim_clusters_5$membership,
+        cortex_f_dim_clusters_10$membership,
+        cortex_f_dim_clusters_15$membership,
+        cortex_f_dim_clusters_20$membership,
+        cortex_f_dim_clusters_25$membership,
+        cortex_f_dim_clusters_30$membership,
+        cortex_f_dim_clusters_35$membership,
+        cortex_f_dim_clusters_40$membership,
+        cortex_f_dim_clusters_50$membership,
+        cortex_f_dim_clusters_60$membership,
+        cortex_f_dim_clusters_70$membership,
+        cortex_f_dim_clusters_80$membership,
+        cortex_f_dim_clusters_90$membership,
+        cortex_f_dim_clusters_100$membership,
+        cortex_f_dim_clusters_120$membership,
+        cortex_f_dim_clusters_140$membership,
+        cortex_f_dim_clusters_160$membership,
+        cortex_f_dim_clusters_180$membership,
+        cortex_f_dim_clusters_200$membership
+        ))
+
+# Ordering them with a number for clustree
+
+colnames(clusterings_dim) <- c("SNN_5","SNN_10","SNN_15","SNN_20","SNN_25","SNN_30","SNN_35","SNN_40","SNN_50","SNN_60","SNN_70","SNN_80","SNN_90","SNN_100","SNN_120","SNN_140","SNN_160","SNN_180","SNN_200")
+
+clustering_dir <- paste (dir,"result/cortex_clustering/clustering.pdf",sep="/")
+pdf(file=clustering_dir,width=15, height=15)
+clustree(clusterings_dim, prefix = "SNN_", layout = "sugiyama")
+dev.off()
+```
+
+```{r Plot clusters on UMAP}
+#SNN_160
+colData(cortex_f_mbn_corrected_dim_red)$clustering <- factor(clusterings_dim$SNN_160)
+
+pdf(file="result/cortex_clustering/clusters_on_umap_SNN_160.pdf",width=7, height=5)
+plotReducedDim(cortex_f_mbn_corrected_dim_red, dimred = "UMAP", colour_by = "clustering", point_size = 0.75, text_by = "clustering")
+```
+
+```{r Plot clusters on UMAP}
+#SNN_120
+colData(cortex_f_mbn_corrected_dim_red)$clustering <- factor(clusterings_dim$SNN_120)
+
+pdf(file="result/cortex_clustering/clusters_on_umap_SNN_120.pdf",width=7, height=5)
+plotReducedDim(cortex_f_mbn_corrected_dim_red, dimred = "UMAP", colour_by = "clustering", point_size = 0.75, text_by = "clustering")
+```
+
+```{r Plot clusters on UMAP}
+#SNN_50
+colData(cortex_f_mbn_corrected_dim_red)$clustering <- factor(clusterings_dim$SNN_50)
+
+pdf(file="result/cortex_clustering/clusters_on_umap_SNN_50.pdf",width=7, height=5)
+plotReducedDim(cortex_f_mbn_corrected_dim_red, dimred = "UMAP", colour_by = "clustering", point_size = 0.75, text_by = "clustering")
+```
+
+```{r Plot clusters on UMAP}
+#SNN_35
+colData(cortex_f_mbn_corrected_dim_red)$clustering <- factor(clusterings_dim$SNN_35)
+
+pdf(file="result/cortex_clustering/clusters_on_umap_SNN_35.pdf",width=7, height=5)
+plotReducedDim(cortex_f_mbn_corrected_dim_red, dimred = "UMAP", colour_by = "clustering", point_size = 0.75, text_by = "clustering")
+```
+
+```{r Plot clusters on UMAP}
+#SNN_25
+colData(cortex_f_mbn_corrected_dim_red)$clustering <- factor(clusterings_dim$SNN_25)
+
+pdf(file="result/cortex_clustering/clusters_on_umap_SNN_25.pdf",width=7, height=5)
+plotReducedDim(cortex_f_mbn_corrected_dim_red, dimred = "UMAP", colour_by = "clustering", point_size = 0.75, text_by = "clustering")
+```
+
+```{r Plot clusters on UMAP}
+#SNN_10
+colData(cortex_f_mbn_corrected_dim_red)$clustering <- factor(clusterings_dim$SNN_10)
+
+pdf(file="result/cortex_clustering/clusters_on_umap_SNN_10.pdf",width=7, height=5)
+plotReducedDim(cortex_f_mbn_corrected_dim_red, dimred = "UMAP", colour_by = "clustering", point_size = 0.75, text_by = "clustering")
+```
+
+```{r Reduce dimensions}
+colData(cortex_f_mbn_corrected_dim_red)$clustering <- factor(clusterings_dim$SNN_35)
+
+reducedDim(cortex_f_mbn, "UMAP") <- reducedDim(cortex_f_mbn_corrected_dim_red, "UMAP")
+colData(cortex_f_mbn)$clustering <- colData(cortex_f_mbn_corrected_dim_red)$clustering
+rownames(cortex_f_mbn) <- rowData(cortex_f_mbn)$Symbol
+```
+
+```{r}
+# astrocytes
+pdf(file="result/cortex_clustering/astrocytes_markers_on_umap.pdf",width=20, height=15)
+plots = list()
+for (i in (c("Gja1", "Slc1a2", "Aldh1l1", "Ntsr2", "Mlc1", "Gjb6", "Aqp4", "Acsbg1"))) plots[[i]] = plotReducedDim(cortex_f_mbn, dimred = "UMAP", colour_by = i, point_size = 1)
+gridExtra::grid.arrange(plots[[1]],plots[[2]],plots[[3]],plots[[4]],plots[[5]],plots[[6]],plots[[7]],plots[[8]])
+```
+
+```{r}
+# endothelial
+pdf(file="result/cortex_clustering/endothelial_markers_on_umap.pdf",width=20, height=15)
+plots = list()
+for (i in (c("Cldn5","Flt1","Pecam1","Cdh5", "Pglyrp1"))) plots[[i]] = plotReducedDim(cortex_f_mbn, dimred = "UMAP", colour_by = i, point_size = 1)
+gridExtra::grid.arrange(plots[[1]],plots[[2]],plots[[3]],plots[[4]],plots[[5]])
+```
+
+```{r}
+# neuron
+pdf(file="result/cortex_clustering/neuron_markers_on_umap.pdf",width=20, height=15)
+plots = list()
+for (i in (c("Snap25"))) plots[[i]] = plotReducedDim(cortex_f_mbn, dimred = "UMAP", colour_by = i, point_size = 1)
+gridExtra::grid.arrange(plots[[1]])
+```
+
+```{r}
+# excitatory neuron
+pdf(file="result/cortex_clustering/excitatoryneuron_markers_on_umap.pdf",width=20, height=15)
+plots = list()
+for (i in (c("Slc17a7", "Slc17a6" , "Neurod6", "Nrn1"))) plots[[i]] = plotReducedDim(cortex_f_mbn, dimred = "UMAP", colour_by = i, point_size = 1)
+gridExtra::grid.arrange(plots[[1]],plots[[2]],plots[[3]],plots[[4]])
+```
+
+```{r}
+# inhibitory neuron
+pdf(file="result/cortex_clustering/inhibitoryneuron_markers_on_umap.pdf",width=20, height=15)
+plots = list()
+for (i in (c("Gad1", "Gad2", "Pnoc", "Slc32a1"))) plots[[i]] = plotReducedDim(cortex_f_mbn, dimred = "UMAP", colour_by = i, point_size = 1)
+gridExtra::grid.arrange(plots[[1]],plots[[2]],plots[[3]],plots[[4]])
+```
+
+```{r}
+# mature neuron
+pdf(file="result/cortex_clustering/matureneuron_markers_on_umap.pdf",width=20, height=15)
+plots = list()
+for (i in (c("Syt1"))) plots[[i]] = plotReducedDim(cortex_f_mbn, dimred = "UMAP", colour_by = i, point_size = 1)
+gridExtra::grid.arrange(plots[[1]])
+```
+
+```{r}
+# immature neuron
+pdf(file="result/cortex_clustering/immatureneuron_markers_on_umap.pdf",width=20, height=15)
+plots = list()
+for (i in (c("Sox11"))) plots[[i]] = plotReducedDim(cortex_f_mbn, dimred = "UMAP", colour_by = i, point_size = 1)
+gridExtra::grid.arrange(plots[[1]])
+```
+
+```{r}
+# vascular smooth muscle cells
+pdf(file="result/cortex_clustering/vsmc_markers_on_umap.pdf",width=20, height=15)
+plots = list()
+for (i in (c("Acta2"))) plots[[i]] = plotReducedDim(cortex_f_mbn, dimred = "UMAP", colour_by = i, point_size = 1)
+gridExtra::grid.arrange(plots[[1]])
+```
+
+```{r}
+# microglia
+pdf(file="result/cortex_clustering/microglia_markers_on_umap.pdf",width=20, height=15)
+plots = list()
+for (i in (c("Ctss","Tmem119", "Hexb","C1qa", "C1qb", "C1qc"))) plots[[i]] = plotReducedDim(cortex_f_mbn, dimred = "UMAP", colour_by = i, point_size = 1)
+gridExtra::grid.arrange(plots[[1]],plots[[2]],plots[[3]],plots[[4]],plots[[5]],plots[[6]])
+```
+
+```{r}
+# oligodendrocytes
+pdf(file="result/cortex_clustering/oligodendrocytes_markers_on_umap.pdf",width=20, height=15)
+plots = list()
+for (i in (c("Cldn11"))) plots[[i]] = plotReducedDim(cortex_f_mbn, dimred = "UMAP", colour_by = i, point_size = 1)
+gridExtra::grid.arrange(plots[[1]])
+```
+
+```{r}
+# oligodendrocytes precursor cells
+pdf(file="result/cortex_clustering/opc_markers_on_umap.pdf",width=20, height=15)
+plots = list()
+for (i in (c("Pdgfra"))) plots[[i]] = plotReducedDim(cortex_f_mbn, dimred = "UMAP", colour_by = i, point_size = 1)
+gridExtra::grid.arrange(plots[[1]])
+```
+
+```{r}
+# pericytes
+pdf(file="result/cortex_clustering/pericyte_markers_on_umap.pdf",width=20, height=15)
+plots = list()
+for (i in (c("Kcnj8"))) plots[[i]] = plotReducedDim(cortex_f_mbn, dimred = "UMAP", colour_by = i, point_size = 1)
+gridExtra::grid.arrange(plots[[1]])
+```
+
+```{r}
+# macophages,monocytes, DCs, neutrophils
+pdf(file="result/cortex_clustering/mac_mnc_dc_neut_markers_on_umap.pdf",width=20, height=15)
+plots = list()
+for (i in (c("Plac8","Pf4","Cd209a","S100a9"))) plots[[i]] = plotReducedDim(cortex_f_mbn, dimred = "UMAP", colour_by = i, point_size = 1)
+gridExtra::grid.arrange(plots[[1]],plots[[2]],plots[[3]],plots[[4]])
+```
+
+```{r}
+# choroid plexus cells
+pdf(file="result/cortex_clustering/cpc_markers_on_umap.pdf",width=20, height=15)
+plots = list()
+for (i in (c("Ttr"))) plots[[i]] = plotReducedDim(cortex_f_mbn, dimred = "UMAP", colour_by = i, point_size = 1)
+gridExtra::grid.arrange(plots[[1]])
+```
+
+```{r}
+# olfactory ensheathing glia
+pdf(file="result/cortex_clustering/oeg_markers_on_umap.pdf",width=20, height=15)
+plots = list()
+for (i in (c("Npy"))) plots[[i]] = plotReducedDim(cortex_f_mbn, dimred = "UMAP", colour_by = i, point_size = 1)
+gridExtra::grid.arrange(plots[[1]])
+```
+
+```{r}
+# ependymocytes
+pdf(file="result/cortex_clustering/epc_markers_on_umap.pdf",width=20, height=15)
+plots = list()
+for (i in (c("Ccdc153"))) plots[[i]] = plotReducedDim(cortex_f_mbn, dimred = "UMAP", colour_by = i, point_size = 1)
+gridExtra::grid.arrange(plots[[1]])
+```
+
+```{r}
+# arachnoid barrier cells
+pdf(file="result/cortex_clustering/abc_markers_on_umap.pdf",width=20, height=15)
+plots = list()
+for (i in (c("Slc47a1"))) plots[[i]] = plotReducedDim(cortex_f_mbn, dimred = "UMAP", colour_by = i, point_size = 1)
+gridExtra::grid.arrange(plots[[1]])
+```
+
+```{r}
+# vascular and lepto-meningeal cells
+pdf(file="result/cortex_clustering/vmlc_markers_on_umap.pdf",width=20, height=15)
+plots = list()
+for (i in (c("Slc6a13"))) plots[[i]] = plotReducedDim(cortex_f_mbn, dimred = "UMAP", colour_by = i, point_size = 1)
+gridExtra::grid.arrange(plots[[1]])
+```
+
+```{r}
+# t cells
+pdf(file="result/cortex_clustering/t_cells_markers_on_umap.pdf",width=20, height=15)
+plots = list()
+for (i in (c("Cd3g"))) plots[[i]] = plotReducedDim(cortex_f_mbn, dimred = "UMAP", colour_by = i, point_size = 1)
+gridExtra::grid.arrange(plots[[1]])
+```
+
+```{r}
+# tanycyte
+pdf(file="result/cortex_clustering/tnc_cells_markers_on_umap.pdf",width=20, height=15)
+plots = list()
+for (i in (c("Ntsr2","Rax"))) plots[[i]] = plotReducedDim(cortex_f_mbn, dimred = "UMAP", colour_by = i, point_size = 1)
+gridExtra::grid.arrange(plots[[1]],plots[[2]])
+```
+
+```{r Plot clusters on UMAP}
+#SNN_35
+colData(cortex_f_mbn_corrected_dim_red)$clustering <- factor(clusterings_dim$SNN_35)
+```
+
+```{r Elimate empty unsed cluster}
+table(cortex_f_mbn_corrected_dim_red$clustering)
+colData(cortex_f_mbn_corrected_dim_red)$clustering[colData(cortex_f_mbn_corrected_dim_red)$clustering == 5] <-4
+colData(cortex_f_mbn_corrected_dim_red)$clustering[colData(cortex_f_mbn_corrected_dim_red)$clustering == 6] <-4
+colData(cortex_f_mbn_corrected_dim_red)$clustering[colData(cortex_f_mbn_corrected_dim_red)$clustering == 7] <-5
+colData(cortex_f_mbn_corrected_dim_red)$clustering[colData(cortex_f_mbn_corrected_dim_red)$clustering == 8] <-6
+colData(cortex_f_mbn_corrected_dim_red)$clustering[colData(cortex_f_mbn_corrected_dim_red)$clustering == 9] <-7
+
+table(cortex_f_mbn_corrected_dim_red$clustering)
+
+cortex_f_mbn_corrected_dim_red$clustering <- droplevels(cortex_f_mbn_corrected_dim_red$clustering)
+
+table(cortex_f_mbn_corrected_dim_red$clustering)
+str(cortex_f_mbn_corrected_dim_red$clustering)
+```
+
+```{r Label clusters}
+cluster_labels = data.frame("cluster" = 1:7, "label" = c("Endothelial cells","Astrocytes","Vasculer smooth muscle cells","Oligodendrocytes","Oligodendrocyte precursor cells","Neurons","T cells"))
+
+rownames(cluster_labels) <- cluster_labels$clustering
+colData(cortex_f_mbn_corrected_dim_red)$cluster_labels <- cluster_labels[as.character(colData(cortex_f_mbn_corrected_dim_red)$clustering), "label"]
+
+pdf(file="result/cortex_clustering/labelled_clusters_SNN_35_maincluster.pdf",width=8, height=5)
+plotReducedDim(cortex_f_mbn_corrected_dim_red, dimred = "UMAP", colour_by = "cluster_labels", text_by = "clustering", point_size = 1, text_size = 3)
+```
+
+```{r BIOLOGICAL INTERPRETATION}
+table(cortex_f_mbn_corrected_dim_red$Sample)
+
+young2 <- cortex_f_mbn_corrected_dim_red[,cortex_f_mbn_corrected_dim_red$Sample%in%c("3_10_M", "3_39_F", "3_8_M", "3_9_M")]
+aged2 <- cortex_f_mbn_corrected_dim_red[,cortex_f_mbn_corrected_dim_red$Sample%in%c("18_45_M", "18_46_F", "18_47_F", "18_53_M")]
+old2 <- cortex_f_mbn_corrected_dim_red[,cortex_f_mbn_corrected_dim_red$Sample%in%c("24_60_M")]
+
+young2 <- as.data.frame(table(young2$cluster_labels))
+colnames(young2) <- c("cell_type","young")
+young2 <- young2 %>% 
+   add_row(cell_type = "T cells" , young=0)
+
+aged2 <- as.data.frame(table(aged2$cluster_labels))
+colnames(aged2) <- c("cell_type","aged")
+
+old2 <- as.data.frame(table(old2$cluster_labels))
+colnames(old2) <- c("cell_type","old")
+
+#put all data frames into list
+cell_type_per_age_group <- list(young2, aged2, old2)
+
+#merge all data frames in list
+cell_type_per_age_group <- cell_type_per_age_group %>% reduce(full_join, by='cell_type')
+
+write.csv(cell_type_per_age_group, file = "result/cortex_clustering/cell_type_per_age_group.csv")
+```
+
+```{r Filter EC}
+# Subset endothelial cells
+colData(cortex_f_mbn)$cluster_labels <- colData(cortex_f_mbn_corrected_dim_red)$cluster_labels
+endo <- cortex_f_mbn[,cortex_f_mbn$cluster_labels=="Endothelial cells"]
+endo
+```
+
+```{r}
+saveRDS(cortex_f_mbn,file="saved_data/2023-03-22_cortex_clustered.rds")
+saveRDS(endo,file="saved_data/2023-03-22_endo.rds")
+```

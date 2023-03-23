@@ -1,0 +1,20 @@
+"","ID","Description","GeneRatio","BgRatio","pvalue","p.adjust","qvalue","geneID","Count"
+"GO:0046943","GO:0046943","carboxylic acid transmembrane transporter activity","12/92","168/28275",3.12941734221542e-13,4.602903864516e-11,3.20063618700498e-11,"Slc16a1/Slc7a5/Slc38a5/Slc38a3/Slc7a1/Abcb1a/Slc16a9/Slc3a2/Slc1a1/Slc16a4/Slco1a4/Slco2b1",12
+"GO:0005342","GO:0005342","organic acid transmembrane transporter activity","12/92","169/28275",3.35978384271241e-13,4.602903864516e-11,3.20063618700498e-11,"Slc16a1/Slc7a5/Slc38a5/Slc38a3/Slc7a1/Abcb1a/Slc16a9/Slc3a2/Slc1a1/Slc16a4/Slco1a4/Slco2b1",12
+"GO:0008514","GO:0008514","organic anion transmembrane transporter activity","11/92","185/28275",2.36623451420962e-11,2.16116085631145e-09,1.50276648095418e-09,"Slc16a1/Slc7a5/Slc38a5/Slc22a8/Slc38a3/Slc7a1/Slc39a8/Slc3a2/Slc1a1/Slco1a4/Slco2b1",11
+"GO:0008509","GO:0008509","anion transmembrane transporter activity","12/92","313/28275",4.51687857878553e-10,3.09406182646809e-08,2.151460586211e-08,"Slc16a1/Slc7a5/Slc38a5/Slc22a8/Slc38a3/Slc7a1/Ttyh2/Slc39a8/Slc3a2/Slc1a1/Slco1a4/Slco2b1",12
+"GO:0015291","GO:0015291","secondary active transmembrane transporter activity","10/92","242/28275",6.83250980059917e-09,3.74421537072835e-07,2.60354583980726e-07,"Slc16a1/Slc7a5/Slc22a8/Slc38a3/Slc39a8/Slc16a9/Slc1a1/Slc16a4/Slco1a4/Slco2b1",10
+"GO:0015179","GO:0015179","L-amino acid transmembrane transporter activity","6/92","62/28275",5.33967408968389e-08,2.43845116762231e-06,1.69558071970664e-06,"Slc7a5/Slc38a5/Slc38a3/Slc7a1/Slc3a2/Slc1a1",6
+"GO:0022804","GO:0022804","active transmembrane transporter activity","11/92","396/28275",6.89699487455194e-08,2.69968085089605e-06,1.87722717638181e-06,"Slc16a1/Slc7a5/Slc22a8/Slc38a3/Slc39a8/Abcb1a/Slc16a9/Slc1a1/Slc16a4/Slco1a4/Slco2b1",11
+"GO:0046915","GO:0046915","transition metal ion transmembrane transporter activity","5/92","37/28275",1.31161534912563e-07,4.49228257075529e-06,3.12371550252289e-06,"Slc40a1/Tfrc/Slc39a8/Slc31a1/Slc39a10",5
+"GO:0015175","GO:0015175","neutral amino acid transmembrane transporter activity","5/92","41/28275",2.23193170423147e-07,6.79499207732692e-06,4.7249080522327e-06,"Slc7a5/Slc38a5/Slc38a3/Slc3a2/Slc1a1",5
+"GO:0015171","GO:0015171","amino acid transmembrane transporter activity","6/92","85/28275",3.57778846925851e-07,9.80314040576831e-06,6.81662855721884e-06,"Slc7a5/Slc38a5/Slc38a3/Slc7a1/Slc3a2/Slc1a1",6
+"GO:0008028","GO:0008028","monocarboxylic acid transmembrane transporter activity","5/92","63/28275",1.97864809711494e-06,4.92863253281359e-05,3.42713211079239e-05,"Slc16a1/Slc16a9/Slc16a4/Slco1a4/Slco2b1",5
+"GO:1901474","GO:1901474","azole transmembrane transporter activity","3/92","10/28275",3.93466681734815e-06,8.98415589961161e-05,6.24714643807031e-05,"Slc38a5/Slc38a3/Slc7a1",3
+"GO:0022858","GO:0022858","alanine transmembrane transporter activity","3/92","12/28275",7.1795668199713e-06,0.000147010496216049,0.000102223971629293,"Slc38a5/Slc38a3/Slc3a2",3
+"GO:0015293","GO:0015293","symporter activity","6/92","143/28275",7.5114852081193e-06,0.000147010496216049,0.000102223971629293,"Slc16a1/Slc38a3/Slc39a8/Slc16a9/Slc1a1/Slc16a4",6
+"GO:0015174","GO:0015174","basic amino acid transmembrane transporter activity","3/92","15/28275",1.47438610387536e-05,0.000269321194974565,0.000187272901615045,"Slc38a5/Slc38a3/Slc7a1",3
+"GO:0030695","GO:0030695","GTPase regulator activity","8/92","422/28275",7.18458659404965e-05,0.00115798630986447,0.000805207537785131,"Net1/Nrp1/Tbc1d4/Tiam1/Rgl1/Srgap2/Stard8/Agfg1",8
+"GO:0060589","GO:0060589","nucleoside-triphosphatase regulator activity","8/92","422/28275",7.18458659404965e-05,0.00115798630986447,0.000805207537785131,"Net1/Nrp1/Tbc1d4/Tiam1/Rgl1/Srgap2/Stard8/Agfg1",8
+"GO:0051087","GO:0051087","chaperone binding","4/92","109/28275",0.000449812427659781,0.00684714473215445,0.00476117247990762,"Tfrc/Vwf/Fn1/Ctsc",4
+"GO:1901618","GO:1901618","organic hydroxy compound transmembrane transporter activity","3/92","49/28275",0.000551074922225989,0.00794708045736426,0.00552601445556255,"Slc16a1/Slco1a4/Slco2b1",3

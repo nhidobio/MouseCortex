@@ -1,0 +1,2546 @@
+---
+title: "06_endo_Pseudobulk"
+author: "Nhi Nguyen"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## BULK RNA
+
+```{r}
+# Load libraries
+# BiocManager::install("apeglm")
+# BiocManager::install("DESeq2")
+library(Matrix)
+library(SingleCellExperiment)
+library(ggplot2)
+library(scater)
+library(bluster)
+library(scuttle)
+library(scran)
+library(batchelor)
+library(clustree)
+library(pheatmap)
+library(GSEABase)
+library(scDblFinder)
+library(DropletUtils)
+library(ExperimentSubset)
+library(MAST)
+library(gginnards)
+library(magrittr)
+library(stringr)
+library(tibble)
+library(ggplot2)
+library(ggraph)
+library(igraph)
+library(tidyverse)
+library(clusterProfiler)
+library(org.Mm.eg.db)
+library(DOSE)
+library(ReactomePA)
+library(enrichplot)
+library(AUCell)
+library(viridis)
+library(tidyverse)
+library(cowplot)
+library(Matrix.utils)
+library(edgeR)
+library(dplyr)
+library(magrittr)
+library(Matrix)
+library(purrr)
+library(reshape2)
+library(S4Vectors)
+library(tibble)
+library(SingleCellExperiment)
+library(pheatmap)
+library(apeglm)
+library(png)
+library(DESeq2)
+library(RColorBrewer)
+R.utils::setOption("clusterProfiler.download.method","wininet")
+library("clusterProfiler")
+getOption("clusterProfiler.download.method")
+```
+## ENDO REGIONAL
+```{r}
+endo <- readRDS(file = "saved_data/2023-03-22_endo_arteriovenouse_zonation.rds")
+endo
+```
+## Bulk RNA for EC subclusters
+
+```{r}
+## Explore the cellular metadata for the dataset
+endo_cop <- endo
+
+endo_cop$Sample <- recode(endo_cop$Sample, "18_45_M" = "18m45M", "18_46_F" = "18m46F","18_47_F" = "18m47F", "18_53_M" = "18m53M", "3_10_M" = "3m10M", "3_39_F" = "3m39F", "3_8_M" = "3m8M", "3_9_M" = "3m9M", "24_60_M" = "24m60M")
+endo_cop$arteriovenous_clustering <- recode(endo_cop$arteriovenous_clustering, "aEC1_genes" = "aEC1", "aEC2_genes" = "aEC2","capEC_genes" = "capEC", "vcapEC_genes"= "vcapEC", "vEC_genes"= "vEC", "avEC_genes" = "avEC")
+
+endo_cop$age <- recode(endo_cop$age, "18m" = "AGED", "3m" = "YOUNG", "24m" = "OLD")
+
+colnames(colData(endo_cop))
+colnames(colData(endo_cop))[which(colnames(colData(endo_cop))=="arteriovenous_clustering")] <- "cluster_id"
+colnames(colData(endo_cop))[which(colnames(colData(endo_cop))=="Sample")] <- "sample_id"
+colnames(colData(endo_cop))[which(colnames(colData(endo_cop))=="age")] <- "group_id"
+
+head(colData(endo_cop))
+```
+```{r}
+# BiocManager::install("singleCellTK")
+# library(singleCellTK)
+# exportSCE(endo_cop, directory = paste(dir,"result/export", sep="/"), format ="SCE")
+```
+
+```{r}
+# Named vector of cluster names
+kids <- purrr::set_names(levels(as.factor(endo_cop$cluster_id)))
+kids
+
+# Total number of clusters
+nk <- length(kids)
+nk
+
+# Named vector of sample names
+sids <- purrr::set_names(levels(as.factor(endo_cop$sample_id)))
+sids
+
+# Total number of samples 
+ns <- length(sids)
+ns
+```
+```{r}
+# Generate sample level metadata
+
+## Determine the number of cells per sample
+table(endo_cop$sample_id)
+
+## Turn named vector into a numeric vector of number of cells per sample
+n_cells <- as.numeric(table(endo_cop$sample_id))
+
+## Determine how to reorder the samples (rows) of the metadata to match the order of sample names in sids vector
+m <- match(sids, endo_cop$sample_id)
+
+## Create the sample level metadata by combining the reordered metadata with the number of cells corresponding to each sample.
+ei <- data.frame(colData(endo_cop)[m, ], 
+                 n_cells, row.names = NULL) %>% 
+  select(-"cluster_id")
+ei
+```
+
+```{r}
+# Aggregate the counts per sample_id and cluster_id
+
+# Subset metadata to only include the cluster and sample IDs to aggregate across
+groups <- colData(endo_cop)[, c("cluster_id", "sample_id")]
+groups
+# Aggregate across cluster-sample groups
+pb <- aggregate.Matrix(t(counts(endo_cop)), 
+                       groupings = groups, fun = "sum") 
+
+class(pb)
+
+dim(pb)
+
+pb[1:6, 1:6]
+```
+
+```{r}
+# Not every cluster is present in all samples; create a vector that represents how to split samples
+splitf <- sapply(stringr::str_split(rownames(pb), 
+                                    pattern = "_",  
+                                    n = 2), 
+                 `[`, 1)
+
+```
+
+
+```{r}
+# Turn into a list and split the list into components for each cluster and transform, so rows are genes and columns are samples and make rownames as the sample IDs
+pb <- split.data.frame(pb, 
+                       factor(splitf)) %>%
+  lapply(function(u) 
+    set_colnames(t(u), 
+                 stringr::str_extract(rownames(u), "(?<=_)[:alnum:]+")))
+
+class(pb)
+
+# Explore the different components of list
+str(pb)
+```
+```{r}
+# Print out the table of cells in each cluster-sample group
+options(width = 100)
+table(endo_cop$cluster_id, endo_cop$sample_id)
+```
+```{r}
+# Get sample names for each of the cell type clusters
+
+# prep. data.frame for plotting
+get_sample_ids <- function(x){
+  pb[[x]] %>%
+    colnames()
+}
+
+de_samples <- map(1:length(kids), get_sample_ids) %>%
+  unlist()
+```
+
+```{r}
+# Get cluster IDs for each of the samples
+
+samples_list <- map(1:length(kids), get_sample_ids)
+
+get_cluster_ids <- function(x){
+  rep(names(pb)[x], 
+      each = length(samples_list[[x]]))
+}
+
+de_cluster_ids <- map(1:length(kids), get_cluster_ids) %>%
+  unlist()
+```
+
+```{r}
+# Create a data frame with the sample IDs, cluster IDs and condition
+
+gg_df <- data.frame(cluster_id = de_cluster_ids,
+                    sample_id = de_samples)
+gg_df
+
+gg_df <- left_join(gg_df, ei[, c("sample_id", "group_id")]) 
+
+
+metadata <- gg_df %>%
+  dplyr::select(cluster_id, sample_id, group_id) 
+
+metadata$cluster_id <- factor(metadata$cluster_id)
+
+head(metadata, n = 10)
+```
+
+```{r}
+# Generate vector of cluster IDs
+clusters <- levels(metadata$cluster_id)
+clusters
+```
+## aEC1
+```{r}
+clusters[1]
+```
+
+```{r}
+# Subset the metadata to only the EC
+cluster_metadata <- metadata[which(metadata$cluster_id == clusters[1]),]
+str(cluster_metadata)
+head(cluster_metadata)
+
+# Assign the rownames of the metadata to be the sample IDs
+rownames(cluster_metadata) <- cluster_metadata$sample_id
+head(cluster_metadata)
+
+# Subset the counts to only the EC
+counts <- pb[[clusters[1]]]
+
+cluster_counts <- as.data.frame(as.matrix(counts[, which(colnames(counts) %in% rownames(cluster_metadata))]))
+
+cluster_counts 
+
+# Check that all of the row names of the metadata are the same and in the same order as the column names of the counts in order to use as input to DESeq2
+all(rownames(cluster_metadata) == colnames(cluster_counts))      
+```
+
+```{r}
+# Create DESeq2 object        
+dds <- DESeqDataSetFromMatrix(round(cluster_counts), 
+                              colData = cluster_metadata, 
+                              design = ~ group_id)
+```
+
+```{r}
+# Transform counts for data visualization
+rld <- rlog(dds, blind=TRUE)
+
+# Plot PCA
+pdf(file=paste(dir,"result/endo/pseudobulk/aEC1_bulk_pca.pdf",sep= "/" ),width=15, height=10)
+DESeq2::plotPCA(rld, intgroup = "group_id")
+```
+
+```{r}
+# Extract the rlog matrix from the object and compute pairwise correlation values
+rld_mat <- assay(rld)
+rld_cor <- cor(rld_mat)
+
+# Plot heatmap
+pdf(file=paste(dir,"result/endo/pseudobulk/aEC1_bulk_heatmap.pdf",sep= "/" ),width=15, height=10)
+pheatmap(rld_cor, annotation = cluster_metadata[, c("group_id"), drop=F])
+```
+
+```{r}
+# Run DESeq2 differential expression analysis
+dds$group_id <- factor(dds$group_id, levels = c("YOUNG","AGED","OLD"))
+dds$group_id
+
+dds <- DESeq(dds)
+# Plot dispersion estimates
+pdf(file=paste(dir,"result/endo/pseudobulk/aEC1_bulk_dispersion_estimate.pdf",sep= "/" ),width=15, height=10)
+plotDispEsts(dds)
+```
+```{r}
+# Check the coefficients for the comparison
+resultsNames(dds)
+
+# Generate results object
+res <- results(dds, 
+               name = "group_id_AGED_vs_YOUNG",
+               alpha = 0.05)
+
+# Shrink the log2 fold changes to be more appropriate using the apeglm method - should cite [paper]() when using this method
+# res <- lfcShrink(dds, 
+#                  coef = "group_id_YOUNG_vs_OLD",
+#                  res=res,
+#                  type = "apeglm")
+res
+```
+```{r}
+int_genes <- c("Id1", "Dynll1", "Tns1", "Abcg2", "Ptn", "Bsg", "Nme2", "Hmgb1", "Pfn1", "Slc1a2", "Nampt", "Apoe", "Stmn1", "Klf2", "Kdr", "B2m", "Jmjd1c", "Pglyrp1", "Cfl1", "Actb", "Rac1", "Sparc", "Ramp2", "Cdh5", "Cldn5", "Abcg1", "Flrt2","Slc38a5")
+aEC1 <- res$log2FoldChange[match(int_genes,rownames(res))]
+df <- data.frame(int_genes,aEC1)
+df
+```
+
+```{r}
+# Turn the results object into a tibble for use with tidyverse functions
+res_tbl <- res %>%
+  data.frame() %>%
+  rownames_to_column(var="gene") %>%
+  as_tibble() %>%
+  arrange(pvalue)
+
+# Check results output
+write.csv(res_tbl,file=paste(dir,"result/endo/pseudobulk/aEC1_bulk_all_genes.csv",sep= "/" ))
+```
+
+```{r}
+# Set thresholds
+pvalue_cutoff <- 0.05
+
+# Subset the significant results
+sig_res <- dplyr::filter(res_tbl, pvalue < pvalue_cutoff) %>%
+  dplyr::arrange(pvalue)
+aEC1_sig_res <- dplyr::filter(res_tbl, pvalue < pvalue_cutoff) %>%
+  dplyr::arrange(pvalue)
+aEC1_sig_res
+
+# Check significant genes output
+write.csv(sig_res,file=paste(dir,"result/endo/pseudobulk/aEC1_bulk_significant_genes.csv",sep= "/" ))
+```
+
+```{r}
+# Scatterplot
+## ggplot of top genes
+normalized_counts <- counts(dds, 
+                            normalized = TRUE)
+
+## Order results by pvalue values
+top20_sig_genes <- sig_res %>%
+  dplyr::arrange(pvalue) %>%
+  dplyr::pull(gene) %>%
+  head(n=20)
+
+top20_sig_norm <- data.frame(normalized_counts) %>%
+  rownames_to_column(var = "gene") %>%
+  dplyr::filter(gene %in% top20_sig_genes)
+
+gathered_top20_sig <- top20_sig_norm %>%
+  gather(colnames(top20_sig_norm)[2:length(colnames(top20_sig_norm))], key = "samplename", value = "normalized_counts")
+
+
+tab <- ei[, c("sample_id", "group_id" )]
+tab$sample_id <- recode(tab$sample_id, "18m45M"="X18m45M", "18m46F"= "X18m46F", "18m47F"="X18m47F","18m53M"="X18m53M","24m60M"="X24m60M", "3m10M"="X3m10M", "3m39F"="X3m39F", "3m8M"="X3m8M","3m9M"="X3m9M")
+
+gathered_top20_sig <- inner_join(tab, gathered_top20_sig, by = c("sample_id" = "samplename"))
+
+## plot using ggplot2
+pdf(file=paste(dir,"result/endo/pseudobulk/aEC1_bulk_ggplot_significant_genes.pdf",sep= "/" ),width=15, height=10)
+ggplot(gathered_top20_sig) +
+  geom_point(aes(x = gene, 
+                 y = normalized_counts, 
+                 color = group_id), 
+             position=position_jitter(w=0.1,h=0)) +
+  scale_y_log10() +
+  xlab("Genes") +
+  ylab("log10 Normalized Counts") +
+  ggtitle("Top 20 Significant DE Genes") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+
+```{r}
+# Extract normalized counts for only the significant genes
+sig_norm <- data.frame(normalized_counts) %>%
+  rownames_to_column(var = "gene") %>%
+  dplyr::filter(gene %in% sig_res$gene)
+
+# Set a color palette
+heat_colors <- brewer.pal(6, "YlOrRd")
+
+sig_norm
+
+colnames(sig_norm) <- c("gene","18m45M","18m46F","18m47F","18m53M","24m60M","3m10M","3m39F","3m9M")
+rownames(sig_norm) <- sig_norm$gene
+
+# Run pheatmap using the metadata data frame for the annotation
+pdf(file=paste(dir,"result/endo/pseudobulk/aEC1_heatmap_significant_genes.pdf",sep= "/" ),width=15, height=10)
+pheatmap(sig_norm[ , 2:length(colnames(sig_norm))],
+         color = heat_colors,
+         cluster_rows = T,
+         show_rownames = T,
+         annotation = cluster_metadata[, c("group_id", "cluster_id")],
+         border_color = NA,
+         fontsize = 9,
+         scale = "row",
+         fontsize_row = 9,
+         height = 20)
+```
+
+
+```{r different sizing to V}
+## Obtain logical vector where TRUE values denote padj values < 0.05 and fold change > 1.5 in either direction
+res_table_thres <- res_tbl %>% 
+  mutate(threshold = pvalue < 0.05)
+
+## Volcano plot
+pdf(file=paste(dir,"result/endo/pseudobulk/aEC1_bulk_volcano.pdf",sep= "/" ))
+ggplot(res_table_thres) +
+  geom_point(aes(x = log2FoldChange, y = -log(pvalue,base=10), colour = threshold)) +
+  ggtitle("Volcano plot of aged EC relative to young") +
+  xlab("log2 fold change") + 
+  ylab("-log10 p-value")+
+  # scale_y_continuous(limits = c(0.001050,0.001075)) +
+  theme(legend.position = "none",
+        plot.title = element_text(size = rel(1.5), hjust = 0.5),
+        axis.title = element_text(size = rel(1.25)))
+```
+
+## aEC2
+```{r}
+clusters[2]
+```
+
+```{r}
+# Subset the metadata to only the EC
+cluster_metadata <- metadata[which(metadata$cluster_id == clusters[2]),]
+str(cluster_metadata)
+head(cluster_metadata)
+
+# Assign the rownames of the metadata to be the sample IDs
+rownames(cluster_metadata) <- cluster_metadata$sample_id
+head(cluster_metadata)
+
+# Subset the counts to only the EC
+counts <- pb[[clusters[2]]]
+
+cluster_counts <- as.data.frame(as.matrix(counts[, which(colnames(counts) %in% rownames(cluster_metadata))]))
+
+cluster_counts 
+
+# Check that all of the row names of the metadata are the same and in the same order as the column names of the counts in order to use as input to DESeq2
+all(rownames(cluster_metadata) == colnames(cluster_counts))      
+```
+
+```{r}
+# Create DESeq2 object        
+dds <- DESeqDataSetFromMatrix(round(cluster_counts), 
+                              colData = cluster_metadata, 
+                              design = ~ group_id)
+```
+
+```{r}
+# Transform counts for data visualization
+rld <- rlog(dds, blind=TRUE)
+
+# Plot PCA
+pdf(file=paste(dir,"result/endo/pseudobulk/aEC2_bulk_pca.pdf",sep= "/" ),width=15, height=10)
+DESeq2::plotPCA(rld, intgroup = "group_id")
+```
+
+```{r}
+# Extract the rlog matrix from the object and compute pairwise correlation values
+rld_mat <- assay(rld)
+rld_cor <- cor(rld_mat)
+
+# Plot heatmap
+pdf(file=paste(dir,"result/endo/pseudobulk/aEC2_bulk_heatmap.pdf",sep= "/" ),width=15, height=10)
+pheatmap(rld_cor, annotation = cluster_metadata[, c("group_id"), drop=F])
+```
+
+```{r}
+# Run DESeq2 differential expression analysis
+dds$group_id <- factor(dds$group_id, levels = c("YOUNG","AGED","OLD"))
+dds$group_id
+
+dds <- DESeq(dds)
+# Plot dispersion estimates
+pdf(file=paste(dir,"result/endo/pseudobulk/aEC2_bulk_dispersion_estimate.pdf",sep= "/" ),width=15, height=10)
+plotDispEsts(dds)
+```
+```{r}
+# Check the coefficients for the comparison
+resultsNames(dds)
+
+# Generate results object
+res <- results(dds, 
+               name = "group_id_AGED_vs_YOUNG",
+               alpha = 0.05)
+
+# Shrink the log2 fold changes to be more appropriate using the apeglm method - should cite [paper]() when using this method
+# res <- lfcShrink(dds, 
+#                  coef = "group_id_YOUNG_vs_OLD",
+#                  res=res,
+#                  type = "apeglm")
+res
+```
+```{r}
+aEC2 <- res$log2FoldChange[match(int_genes,rownames(res))]
+df <- cbind(df,aEC2)
+df
+```
+
+```{r}
+# Turn the results object into a tibble for use with tidyverse functions
+res_tbl <- res %>%
+  data.frame() %>%
+  rownames_to_column(var="gene") %>%
+  as_tibble() %>%
+  arrange(pvalue)
+
+# Check results output
+write.csv(res_tbl,file=paste(dir,"result/endo/pseudobulk/aEC2_bulk_all_genes.csv",sep= "/" ))
+```
+
+```{r}
+# Set thresholds
+pvalue_cutoff <- 0.05
+
+# Subset the significant results
+sig_res <- dplyr::filter(res_tbl, pvalue < pvalue_cutoff) %>%
+  dplyr::arrange(pvalue)
+aEC2_sig_res <- dplyr::filter(res_tbl, pvalue < pvalue_cutoff) %>%
+  dplyr::arrange(pvalue)
+aEC2_sig_res
+
+# Check significant genes output
+write.csv(sig_res,file=paste(dir,"result/endo/pseudobulk/aEC2_bulk_significant_genes.csv",sep= "/" ))
+```
+
+```{r}
+# Scatterplot
+## ggplot of top genes
+normalized_counts <- counts(dds, 
+                            normalized = TRUE)
+
+## Order results by pvalue values
+top20_sig_genes <- sig_res %>%
+  dplyr::arrange(pvalue) %>%
+  dplyr::pull(gene) %>%
+  head(n=20)
+
+top20_sig_norm <- data.frame(normalized_counts) %>%
+  rownames_to_column(var = "gene") %>%
+  dplyr::filter(gene %in% top20_sig_genes)
+
+gathered_top20_sig <- top20_sig_norm %>%
+  gather(colnames(top20_sig_norm)[2:length(colnames(top20_sig_norm))], key = "samplename", value = "normalized_counts")
+
+
+tab <- ei[, c("sample_id", "group_id" )]
+tab$sample_id <- recode(tab$sample_id, "18m45M"="X18m45M", "18m46F"= "X18m46F", "18m47F"="X18m47F","18m53M"="X18m53M","24m60M"="X24m60M", "3m10M"="X3m10M", "3m39F"="X3m39F", "3m8M"="X3m8M","3m9M"="X3m9M")
+
+gathered_top20_sig <- inner_join(tab, gathered_top20_sig, by = c("sample_id" = "samplename"))
+
+
+## plot using ggplot2
+pdf(file=paste(dir,"result/endo/pseudobulk/aEC2_bulk_ggplot_significant_genes.pdf",sep= "/" ),width=15, height=10)
+ggplot(gathered_top20_sig) +
+  geom_point(aes(x = gene, 
+                 y = normalized_counts, 
+                 color = group_id), 
+             position=position_jitter(w=0.1,h=0)) +
+  scale_y_log10() +
+  xlab("Genes") +
+  ylab("log10 Normalized Counts") +
+  ggtitle("Top 20 Significant DE Genes") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r}
+# Extract normalized counts for only the significant genes
+sig_norm <- data.frame(normalized_counts) %>%
+  rownames_to_column(var = "gene") %>%
+  dplyr::filter(gene %in% sig_res$gene)
+
+# Set a color palette
+heat_colors <- brewer.pal(6, "YlOrRd")
+
+sig_norm
+
+colnames(sig_norm) <- c("gene","18m46F","18m47F","18m53M","24m60M","3m10M","3m8M")
+rownames(sig_norm) <- sig_norm$gene
+
+# Run pheatmap using the metadata data frame for the annotation
+pdf(file=paste(dir,"result/endo/pseudobulk/aEC2_heatmap_significant_genes.pdf",sep= "/" ),width=15, height=10)
+pheatmap(sig_norm[ , 2:length(colnames(sig_norm))],
+         color = heat_colors,
+         cluster_rows = T,
+         show_rownames = T,
+         annotation = cluster_metadata[, c("group_id", "cluster_id")],
+         border_color = NA,
+         fontsize = 9,
+         scale = "row",
+         fontsize_row = 9,
+         height = 20)
+```
+
+
+```{r}
+## Obtain logical vector where TRUE values denote padj values < 0.05 and fold change > 1.5 in either direction
+res_table_thres <- res_tbl %>% 
+  mutate(threshold = pvalue < 0.05) 
+         #& abs(log2FoldChange) >= 0.58)
+
+## Volcano plot
+pdf(file=paste(dir,"result/endo/pseudobulk/aEC2_bulk_volcano.pdf",sep= "/" ))
+ggplot(res_table_thres) +
+  geom_point(aes(x = log2FoldChange, y = -log(pvalue,base=10), colour = threshold)) +
+  ggtitle("Volcano plot of aged EC relative to young") +
+  xlab("log2 fold change") + 
+  ylab("-log10 p-value")+
+  # scale_y_continuous(limits = c(0.001050,0.001075)) +
+  theme(legend.position = "none",
+        plot.title = element_text(size = rel(1.5), hjust = 0.5),
+        axis.title = element_text(size = rel(1.25)))
+```
+
+## avEC
+```{r}
+clusters[3]
+```
+
+```{r}
+# Subset the metadata to only the EC
+cluster_metadata <- metadata[which(metadata$cluster_id == clusters[3]),]
+str(cluster_metadata)
+head(cluster_metadata)
+
+# Assign the rownames of the metadata to be the sample IDs
+rownames(cluster_metadata) <- cluster_metadata$sample_id
+head(cluster_metadata)
+
+# Subset the counts to only the EC
+counts <- pb[[clusters[3]]]
+
+cluster_counts <- as.data.frame(as.matrix(counts[, which(colnames(counts) %in% rownames(cluster_metadata))]))
+
+cluster_counts 
+
+# Check that all of the row names of the metadata are the same and in the same order as the column names of the counts in order to use as input to DESeq2
+all(rownames(cluster_metadata) == colnames(cluster_counts))      
+```
+
+```{r}
+# Create DESeq2 object        
+dds <- DESeqDataSetFromMatrix(round(cluster_counts), 
+                              colData = cluster_metadata, 
+                              design = ~ group_id)
+```
+
+```{r}
+# Transform counts for data visualization
+rld <- rlog(dds, blind=TRUE)
+
+# Plot PCA
+pdf(file=paste(dir,"result/endo/pseudobulk/avEC_bulk_pca.pdf",sep= "/" ),width=15, height=10)
+DESeq2::plotPCA(rld, intgroup = "group_id")
+```
+
+```{r}
+# Extract the rlog matrix from the object and compute pairwise correlation values
+rld_mat <- assay(rld)
+rld_cor <- cor(rld_mat)
+
+# Plot heatmap
+pdf(file=paste(dir,"result/endo/pseudobulk/avEC_bulk_heatmap.pdf",sep= "/" ),width=15, height=10)
+pheatmap(rld_cor, annotation = cluster_metadata[, c("group_id"), drop=F])
+```
+
+```{r}
+# Run DESeq2 differential expression analysis
+dds$group_id <- factor(dds$group_id, levels = c("YOUNG","AGED","OLD"))
+dds$group_id
+
+dds <- DESeq(dds)
+# Plot dispersion estimates
+pdf(file=paste(dir,"result/endo/pseudobulk/avEC_bulk_dispersion_estimate.pdf",sep= "/" ),width=15, height=10)
+plotDispEsts(dds)
+```
+
+```{r}
+# Check the coefficients for the comparison
+resultsNames(dds)
+
+# Generate results object
+res <- results(dds, 
+               name = "group_id_AGED_vs_YOUNG",
+               alpha = 0.05)
+
+# Shrink the log2 fold changes to be more appropriate using the apeglm method - should cite [paper]() when using this method
+# res <- lfcShrink(dds, 
+#                  coef = "group_id_YOUNG_vs_OLD",
+#                  res=res,
+#                  type = "apeglm")
+res
+```
+
+```{r}
+avEC <- res$log2FoldChange[match(int_genes,rownames(res))]
+df <- cbind(df,avEC)
+df
+```
+
+```{r}
+# Turn the results object into a tibble for use with tidyverse functions
+res_tbl <- res %>%
+  data.frame() %>%
+  rownames_to_column(var="gene") %>%
+  as_tibble() %>%
+  arrange(pvalue)
+
+# Check results output
+write.csv(res_tbl,file=paste(dir,"result/endo/pseudobulk/avEC_bulk_all_genes.csv",sep= "/" ))
+```
+
+```{r}
+# Set thresholds
+pvalue_cutoff <- 0.05
+
+# Subset the significant results
+sig_res <- dplyr::filter(res_tbl, pvalue < pvalue_cutoff) %>%
+  dplyr::arrange(pvalue)
+avEC_sig_res <- dplyr::filter(res_tbl, pvalue < pvalue_cutoff) %>%
+  dplyr::arrange(pvalue)
+avEC_sig_res
+
+# Check significant genes output
+write.csv(sig_res,file=paste(dir,"result/endo/pseudobulk/avEC_bulk_significant_genes.csv",sep= "/" ))
+```
+
+```{r}
+# Scatterplot
+## ggplot of top genes
+normalized_counts <- counts(dds, 
+                            normalized = TRUE)
+
+## Order results by pvalue values
+top20_sig_genes <- sig_res %>%
+  dplyr::arrange(pvalue) %>%
+  dplyr::pull(gene) %>%
+  head(n=20)
+
+top20_sig_norm <- data.frame(normalized_counts) %>%
+  rownames_to_column(var = "gene") %>%
+  dplyr::filter(gene %in% top20_sig_genes)
+
+gathered_top20_sig <- top20_sig_norm %>%
+  gather(colnames(top20_sig_norm)[2:length(colnames(top20_sig_norm))], key = "samplename", value = "normalized_counts")
+
+
+tab <- ei[, c("sample_id", "group_id" )]
+tab$sample_id <- recode(tab$sample_id, "18m45M"="X18m45M", "18m46F"= "X18m46F", "18m47F"="X18m47F","18m53M"="X18m53M","24m60M"="X24m60M", "3m10M"="X3m10M", "3m39F"="X3m39F", "3m8M"="X3m8M","3m9M"="X3m9M")
+
+gathered_top20_sig <- inner_join(tab, gathered_top20_sig, by = c("sample_id" = "samplename"))
+
+
+## plot using ggplot2
+pdf(file=paste(dir,"result/endo/pseudobulk/vEC_bulk_ggplot_significant_genes.pdf",sep= "/" ),width=15, height=10)
+ggplot(gathered_top20_sig) +
+  geom_point(aes(x = gene, 
+                 y = normalized_counts, 
+                 color = group_id), 
+             position=position_jitter(w=0.1,h=0)) +
+  scale_y_log10() +
+  xlab("Genes") +
+  ylab("log10 Normalized Counts") +
+  ggtitle("Top 20 Significant DE Genes") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r}
+# Extract normalized counts for only the significant genes
+sig_norm <- data.frame(normalized_counts) %>%
+  rownames_to_column(var = "gene") %>%
+  dplyr::filter(gene %in% sig_res$gene)
+
+# Set a color palette
+heat_colors <- brewer.pal(6, "YlOrRd")
+
+sig_norm
+
+colnames(sig_norm) <- c("gene","18m45M","18m46F","18m47F","18m53M","20m60M","3m10M","3m39F","3m9M")
+rownames(sig_norm) <- sig_norm$gene
+
+# Run pheatmap using the metadata data frame for the annotation
+# pdf(file=paste(dir,"result/endo/pseudobulk/avEC_heatmap_significant_genes.pdf",sep= "/" ),width=15, height=10)
+# pheatmap(sig_norm[ , 2:length(colnames(sig_norm))],
+#          color = heat_colors,
+#          cluster_rows = T,
+#          show_rownames = T,
+#          annotation = cluster_metadata[, c("group_id", "cluster_id")],
+#          border_color = NA,
+#          fontsize = 9,
+#          scale = "row",
+#          fontsize_row = 9,
+#          height = 20)
+```
+
+
+```{r}
+## Obtain logical vector where TRUE values denote padj values < 0.05 and fold change > 1.5 in either direction
+res_table_thres <- res_tbl %>% 
+  mutate(threshold = pvalue < 0.05)
+         #& abs(log2FoldChange) >= 0.58)
+
+## Volcano plot
+pdf(file=paste(dir,"result/endo/pseudobulk/avEC_bulk_volcano.pdf",sep= "/" ))
+ggplot(res_table_thres) +
+  geom_point(aes(x = log2FoldChange, y = -log(pvalue,base=10), colour = threshold)) +
+  ggtitle("Volcano plot of aged EC relative to young") +
+  xlab("log2 fold change") + 
+  ylab("-log10 p-value")+
+  # scale_y_continuous(limits = c(0.001050,0.001075)) +
+  theme(legend.position = "none",
+        plot.title = element_text(size = rel(1.5), hjust = 0.5),
+        axis.title = element_text(size = rel(1.25)))
+
+```
+
+## capEC
+```{r}
+clusters[4]
+```
+
+```{r}
+# Subset the metadata to only the EC
+cluster_metadata <- metadata[which(metadata$cluster_id == clusters[4]),]
+str(cluster_metadata)
+head(cluster_metadata)
+
+# Assign the rownames of the metadata to be the sample IDs
+rownames(cluster_metadata) <- cluster_metadata$sample_id
+head(cluster_metadata)
+
+# Subset the counts to only the EC
+counts <- pb[[clusters[4]]]
+
+cluster_counts <- as.data.frame(as.matrix(counts[, which(colnames(counts) %in% rownames(cluster_metadata))]))
+
+cluster_counts 
+
+# Check that all of the row names of the metadata are the same and in the same order as the column names of the counts in order to use as input to DESeq2
+all(rownames(cluster_metadata) == colnames(cluster_counts))      
+```
+
+```{r}
+# Create DESeq2 object        
+dds <- DESeqDataSetFromMatrix(round(cluster_counts), 
+                              colData = cluster_metadata, 
+                              design = ~ group_id)
+```
+
+```{r}
+# Transform counts for data visualization
+rld <- rlog(dds, blind=TRUE)
+
+# Plot PCA
+pdf(file=paste(dir,"result/endo/pseudobulk/capEC_bulk_pca.pdf",sep= "/" ),width=15, height=10)
+DESeq2::plotPCA(rld, intgroup = "group_id")
+```
+
+```{r}
+# Extract the rlog matrix from the object and compute pairwise correlation values
+rld_mat <- assay(rld)
+rld_cor <- cor(rld_mat)
+
+# Plot heatmap
+pdf(file=paste(dir,"result/endo/pseudobulk/capEC_bulk_heatmap.pdf",sep= "/" ),width=15, height=10)
+pheatmap(rld_cor, annotation = cluster_metadata[, c("group_id"), drop=F])
+```
+
+```{r}
+# Run DESeq2 differential expression analysis
+dds$group_id <- factor(dds$group_id, levels = c("YOUNG","AGED","OLD"))
+dds$group_id
+
+dds <- DESeq(dds)
+# Plot dispersion estimates
+pdf(file=paste(dir,"result/endo/pseudobulk/capEC_bulk_dispersion_estimate.pdf",sep= "/" ),width=15, height=10)
+plotDispEsts(dds)
+```
+```{r}
+# Check the coefficients for the comparison
+resultsNames(dds)
+
+# Generate results object
+res <- results(dds, 
+               name = "group_id_AGED_vs_YOUNG",
+               alpha = 0.05)
+
+# Shrink the log2 fold changes to be more appropriate using the apeglm method - should cite [paper]() when using this method
+# res <- lfcShrink(dds, 
+#                  coef = "group_id_YOUNG_vs_OLD",
+#                  res=res,
+#                  type = "apeglm")
+res
+```
+```{r}
+capEC <- res$log2FoldChange[match(int_genes,rownames(res))]
+df <- cbind(df,capEC)
+df
+```
+```{r}
+# Turn the results object into a tibble for use with tidyverse functions
+res_tbl <- res %>%
+  data.frame() %>%
+  rownames_to_column(var="gene") %>%
+  as_tibble() %>%
+  arrange(pvalue)
+
+# Check results output
+write.csv(res_tbl,file=paste(dir,"result/endo/pseudobulk/capEC_bulk_all_genes.csv",sep= "/" ))
+```
+
+```{r}
+ # Set thresholds
+pvalue_cutoff <- 0.05
+
+# Subset the significant results
+sig_res <- dplyr::filter(res_tbl, pvalue < pvalue_cutoff) %>%
+  dplyr::arrange(pvalue)
+capEC_sig_res <- dplyr::filter(res_tbl, pvalue < pvalue_cutoff) %>%
+  dplyr::arrange(pvalue)
+capEC_sig_res
+
+# Check significant genes output
+write.csv(sig_res,file=paste(dir,"result/endo/pseudobulk/capEC_bulk_significant_genes.csv",sep= "/" ))
+```
+
+```{r}
+# Scatterplot
+## ggplot of top genes
+normalized_counts <- counts(dds, 
+                            normalized = TRUE)
+
+## Order results by pvalue values
+top20_sig_genes <- sig_res %>%
+  dplyr::arrange(pvalue) %>%
+  dplyr::pull(gene) %>%
+  head(n=20)
+
+top20_sig_norm <- data.frame(normalized_counts) %>%
+  rownames_to_column(var = "gene") %>%
+  dplyr::filter(gene %in% top20_sig_genes)
+
+gathered_top20_sig <- top20_sig_norm %>%
+  gather(colnames(top20_sig_norm)[2:length(colnames(top20_sig_norm))], key = "samplename", value = "normalized_counts")
+
+
+tab <- ei[, c("sample_id", "group_id" )]
+tab$sample_id <- recode(tab$sample_id, "18m45M"="X18m45M", "18m46F"= "X18m46F", "18m47F"="X18m47F","18m53M"="X18m53M","24m60M"="X24m60M", "3m10M"="X3m10M", "3m39F"="X3m39F", "3m8M"="X3m8M","3m9M"="X3m9M")
+
+gathered_top20_sig <- inner_join(tab, gathered_top20_sig, by = c("sample_id" = "samplename"))
+
+
+## plot using ggplot2
+pdf(file=paste(dir,"result/endo/pseudobulk/capEC_bulk_ggplot_significant_genes.pdf",sep= "/" ),width=15, height=10)
+ggplot(gathered_top20_sig) +
+  geom_point(aes(x = gene, 
+                 y = normalized_counts, 
+                 color = group_id), 
+             position=position_jitter(w=0.1,h=0)) +
+  scale_y_log10() +
+  xlab("Genes") +
+  ylab("log10 Normalized Counts") +
+  ggtitle("Top 20 Significant DE Genes") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r}
+# Extract normalized counts for only the significant genes
+sig_norm <- data.frame(normalized_counts) %>%
+  rownames_to_column(var = "gene") %>%
+  dplyr::filter(gene %in% sig_res$gene)
+
+# Set a color palette
+heat_colors <- brewer.pal(6, "YlOrRd")
+
+sig_norm
+
+colnames(sig_norm) <- c("gene","18m45M","18m46F","18m47F","18m53M","24m60M","3m10M","3m39F","3m9M","3m8M")
+rownames(sig_norm) <- sig_norm$gene
+
+# Run pheatmap using the metadata data frame for the annotation
+pdf(file=paste(dir,"result/endo/pseudobulk/capEC_heatmap_significant_genes.pdf",sep= "/" ),width=15, height=10)
+pheatmap(sig_norm[ , 2:length(colnames(sig_norm))],
+         color = heat_colors,
+         cluster_rows = T,
+         show_rownames = T,
+         annotation = cluster_metadata[, c("group_id", "cluster_id")],
+         border_color = NA,
+         fontsize = 9,
+         scale = "row",
+         fontsize_row = 9,
+         height = 20)
+```
+
+
+```{r}
+## Obtain logical vector where TRUE values denote padj values < 0.05 and fold change > 1.5 in either direction
+res_table_thres <- res_tbl %>% 
+  mutate(threshold = pvalue < 0.05)
+         #& abs(log2FoldChange) >= 0.58)
+
+## Volcano plot
+pdf(file=paste(dir,"result/endo/pseudobulk/capEC_bulk_volcano.pdf",sep= "/" ))
+ggplot(res_table_thres) +
+  geom_point(aes(x = log2FoldChange, y = -log(pvalue,base=10), colour = threshold)) +
+  ggtitle("Volcano plot of aged EC relative to young") +
+  xlab("log2 fold change") + 
+  ylab("-log10 p-value")+
+  # scale_y_continuous(limits = c(0.001050,0.001075)) +
+  theme(legend.position = "none",
+        plot.title = element_text(size = rel(1.5), hjust = 0.5),
+        axis.title = element_text(size = rel(1.25)))
+
+```
+
+## vcapEC
+```{r}
+clusters[5]
+```
+
+```{r}
+# Subset the metadata to only the EC
+cluster_metadata <- metadata[which(metadata$cluster_id == clusters[5]),]
+str(cluster_metadata)
+head(cluster_metadata)
+
+# Assign the rownames of the metadata to be the sample IDs
+rownames(cluster_metadata) <- cluster_metadata$sample_id
+head(cluster_metadata)
+
+# Subset the counts to only the EC
+counts <- pb[[clusters[5]]]
+
+cluster_counts <- as.data.frame(as.matrix(counts[, which(colnames(counts) %in% rownames(cluster_metadata))]))
+
+cluster_counts 
+
+# Check that all of the row names of the metadata are the same and in the same order as the column names of the counts in order to use as input to DESeq2
+all(rownames(cluster_metadata) == colnames(cluster_counts))      
+```
+
+```{r}
+# Create DESeq2 object        
+dds <- DESeqDataSetFromMatrix(round(cluster_counts), 
+                              colData = cluster_metadata, 
+                              design = ~ group_id)
+```
+
+```{r}
+# Transform counts for data visualization
+rld <- rlog(dds, blind=TRUE)
+
+# Plot PCA
+pdf(file=paste(dir,"result/endo/pseudobulk/vcapEC_bulk_pca.pdf",sep= "/" ),width=15, height=10)
+DESeq2::plotPCA(rld, intgroup = "group_id")
+```
+
+```{r}
+# Extract the rlog matrix from the object and compute pairwise correlation values
+rld_mat <- assay(rld)
+rld_cor <- cor(rld_mat)
+
+# Plot heatmap
+pdf(file=paste(dir,"result/endo/pseudobulk/vcapEC_bulk_heatmap.pdf",sep= "/" ),width=15, height=10)
+pheatmap(rld_cor, annotation = cluster_metadata[, c("group_id"), drop=F])
+```
+
+```{r}
+# Run DESeq2 differential expression analysis
+dds$group_id <- factor(dds$group_id, levels = c("YOUNG","AGED","OLD"))
+dds$group_id
+
+dds <- DESeq(dds)
+# Plot dispersion estimates
+pdf(file=paste(dir,"result/endo/pseudobulk/vcapEC_bulk_dispersion_estimate.pdf",sep= "/" ),width=15, height=10)
+plotDispEsts(dds)
+```
+```{r}
+# Check the coefficients for the comparison
+resultsNames(dds)
+
+# Generate results object
+res <- results(dds, 
+               name = "group_id_AGED_vs_YOUNG",
+               alpha = 0.05)
+
+# Shrink the log2 fold changes to be more appropriate using the apeglm method - should cite [paper]() when using this method
+# res <- lfcShrink(dds, 
+#                  coef = "group_id_YOUNG_vs_OLD",
+#                  res=res,
+#                  type = "apeglm")
+res
+```
+```{r}
+vcapEC <- res$log2FoldChange[match(int_genes,rownames(res))]
+df <- cbind(df,vcapEC)
+df
+```
+```{r}
+# Turn the results object into a tibble for use with tidyverse functions
+res_tbl <- res %>%
+  data.frame() %>%
+  rownames_to_column(var="gene") %>%
+  as_tibble() %>%
+  arrange(pvalue)
+
+# Check results output
+write.csv(res_tbl,file=paste(dir,"result/endo/pseudobulk/vcapEC_bulk_all_genes.csv",sep= "/" ))
+```
+
+```{r}
+# Set thresholds
+pvalue_cutoff <- 0.05
+
+# Subset the significant results
+sig_res <- dplyr::filter(res_tbl, pvalue < pvalue_cutoff) %>%
+  dplyr::arrange(pvalue)
+vcapEC_sig_res <- dplyr::filter(res_tbl, pvalue < pvalue_cutoff) %>%
+  dplyr::arrange(pvalue)
+vcapEC_sig_res
+
+# Check significant genes output
+write.csv(sig_res,file=paste(dir,"result/endo/pseudobulk/vcapEC_bulk_significant_genes.csv",sep= "/" ))
+```
+
+```{r}
+# Scatterplot
+## ggplot of top genes
+normalized_counts <- counts(dds, 
+                            normalized = TRUE)
+
+## Order results by pvalue values
+top20_sig_genes <- sig_res %>%
+  dplyr::arrange(pvalue) %>%
+  dplyr::pull(gene) %>%
+  head(n=20)
+
+top20_sig_norm <- data.frame(normalized_counts) %>%
+  rownames_to_column(var = "gene") %>%
+  dplyr::filter(gene %in% top20_sig_genes)
+
+gathered_top20_sig <- top20_sig_norm %>%
+  gather(colnames(top20_sig_norm)[2:length(colnames(top20_sig_norm))], key = "samplename", value = "normalized_counts")
+
+
+tab <- ei[, c("sample_id", "group_id" )]
+tab$sample_id <- recode(tab$sample_id, "18m45M"="X18m45M", "18m46F"= "X18m46F", "18m47F"="X18m47F","18m53M"="X18m53M","24m60M"="X24m60M", "3m10M"="X3m10M", "3m39F"="X3m39F", "3m8M"="X3m8M","3m9M"="X3m9M")
+
+gathered_top20_sig <- inner_join(tab, gathered_top20_sig, by = c("sample_id" = "samplename"))
+
+
+## plot using ggplot2
+pdf(file=paste(dir,"result/endo/pseudobulk/vcapEC_bulk_ggplot_significant_genes.pdf",sep= "/" ),width=15, height=10)
+ggplot(gathered_top20_sig) +
+  geom_point(aes(x = gene, 
+                 y = normalized_counts, 
+                 color = group_id), 
+             position=position_jitter(w=0.1,h=0)) +
+  scale_y_log10() +
+  xlab("Genes") +
+  ylab("log10 Normalized Counts") +
+  ggtitle("Top 20 Significant DE Genes") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r}
+# Extract normalized counts for only the significant genes
+sig_norm <- data.frame(normalized_counts) %>%
+ rownames_to_column(var = "gene") %>%
+ dplyr::filter(gene %in% sig_res$gene)
+
+# Set a color palette
+heat_colors <- brewer.pal(6, "YlOrRd")
+
+sig_norm
+
+colnames(sig_norm) <- c("gene","18m45M","18m46F","18m47F","18m53M","24m60M","3m10M","3m39F","3m8M","3m9M")
+rownames(sig_norm) <- sig_norm$gene
+
+# Run pheatmap using the metadata data frame for the annotation
+pdf(file=paste(dir,"result/endo/pseudobulk/vcapEC_heatmap_significant_genes.pdf",sep= "/" ),width=15, height=10)
+pheatmap(sig_norm[ , 2:length(colnames(sig_norm))],
+        color = heat_colors,
+        cluster_rows = T,
+        show_rownames = T,
+        annotation = cluster_metadata[, c("group_id", "cluster_id")],
+        border_color = NA,
+        fontsize = 9,
+        scale = "row",
+        fontsize_row = 9,
+        height = 20)
+```
+
+
+```{r}
+## Obtain logical vector where TRUE values denote padj values < 0.05 and fold change > 1.5 in either direction
+res_table_thres <- res_tbl %>% 
+  mutate(threshold = pvalue < 0.05)
+         #& abs(log2FoldChange) >= 0.58)
+
+## Volcano plot
+pdf(file=paste(dir,"result/endo/pseudobulk/vcapEC_bulk_volcano.pdf",sep= "/" ))
+ggplot(res_table_thres) +
+  geom_point(aes(x = log2FoldChange, y = -log(pvalue,base=10), colour = threshold)) +
+  ggtitle("Volcano plot of aged EC relative to young") +
+  xlab("log2 fold change") + 
+  ylab("-log10 p-value")+
+  # scale_y_continuous(limits = c(0.001050,0.001075)) +
+  theme(legend.position = "none",
+        plot.title = element_text(size = rel(1.5), hjust = 0.5),
+        axis.title = element_text(size = rel(1.25)))
+```
+
+## vEC
+```{r}
+clusters[6]
+```
+
+```{r}
+# Subset the metadata to only the EC
+cluster_metadata <- metadata[which(metadata$cluster_id == clusters[6]),]
+str(cluster_metadata)
+head(cluster_metadata)
+
+# Assign the rownames of the metadata to be the sample IDs
+rownames(cluster_metadata) <- cluster_metadata$sample_id
+head(cluster_metadata)
+
+# Subset the counts to only the EC
+counts <- pb[[clusters[6]]]
+
+cluster_counts <- as.data.frame(as.matrix(counts[, which(colnames(counts) %in% rownames(cluster_metadata))]))
+
+cluster_counts 
+
+# Check that all of the row names of the metadata are the same and in the same order as the column names of the counts in order to use as input to DESeq2
+all(rownames(cluster_metadata) == colnames(cluster_counts))      
+```
+
+```{r}
+# Create DESeq2 object        
+dds <- DESeqDataSetFromMatrix(round(cluster_counts), 
+                              colData = cluster_metadata, 
+                              design = ~ group_id)
+```
+
+```{r}
+# Transform counts for data visualization
+rld <- rlog(dds, blind=TRUE)
+
+# Plot PCA
+pdf(file=paste(dir,"result/endo/pseudobulk/vEC_bulk_pca.pdf",sep= "/" ),width=15, height=10)
+DESeq2::plotPCA(rld, intgroup = "group_id")
+```
+
+```{r}
+# Extract the rlog matrix from the object and compute pairwise correlation values
+rld_mat <- assay(rld)
+rld_cor <- cor(rld_mat)
+
+# Plot heatmap
+pdf(file=paste(dir,"result/endo/pseudobulk/vEC_bulk_heatmap.pdf",sep= "/" ),width=15, height=10)
+pheatmap(rld_cor, annotation = cluster_metadata[, c("group_id"), drop=F])
+```
+
+```{r}
+# Run DESeq2 differential expression analysis
+dds$group_id <- factor(dds$group_id, levels = c("YOUNG","AGED","OLD"))
+dds$group_id
+
+dds <- DESeq(dds)
+# Plot dispersion estimates
+pdf(file=paste(dir,"result/endo/pseudobulk/vEC_bulk_dispersion_estimate.pdf",sep= "/" ),width=15, height=10)
+plotDispEsts(dds)
+```
+```{r}
+# Check the coefficients for the comparison
+resultsNames(dds)
+
+# Generate results object
+res <- results(dds, 
+               name = "group_id_AGED_vs_YOUNG",
+               alpha = 0.05)
+
+# Shrink the log2 fold changes to be more appropriate using the apeglm method - should cite [paper]() when using this method
+# res <- lfcShrink(dds, 
+#                  coef = "group_id_YOUNG_vs_OLD",
+#                  res=res,
+#                  type = "apeglm")
+res
+```
+```{r}
+vEC <- res$log2FoldChange[match(int_genes,rownames(res))]
+df <- cbind(df,vEC)
+df
+```
+```{r}
+# Turn the results object into a tibble for use with tidyverse functions
+res_tbl <- res %>%
+  data.frame() %>%
+  rownames_to_column(var="gene") %>%
+  as_tibble() %>%
+  arrange(pvalue)
+
+# Check results output
+write.csv(res_tbl,file=paste(dir,"result/endo/pseudobulk/vEC_bulk_all_genes.csv",sep= "/" ))
+```
+
+
+```{r}
+# Set thresholds
+pvalue_cutoff <- 0.05
+
+# Subset the significant results
+sig_res <- dplyr::filter(res_tbl, pvalue < pvalue_cutoff) %>%
+  dplyr::arrange(pvalue)
+vEC_sig_res <- dplyr::filter(res_tbl, pvalue < pvalue_cutoff) %>%
+  dplyr::arrange(pvalue)
+vEC_sig_res
+
+# Check significant genes output
+write.csv(sig_res,file=paste(dir,"result/endo/pseudobulk/vEC_bulk_significant_genes.csv",sep= "/" ))
+```
+
+```{r}
+# Scatterplot
+## ggplot of top genes
+normalized_counts <- counts(dds, 
+                            normalized = TRUE)
+
+## Order results by pvalue values
+top20_sig_genes <- sig_res %>%
+  dplyr::arrange(pvalue) %>%
+  dplyr::pull(gene) %>%
+  head(n=20)
+
+top20_sig_norm <- data.frame(normalized_counts) %>%
+  rownames_to_column(var = "gene") %>%
+  dplyr::filter(gene %in% top20_sig_genes)
+
+gathered_top20_sig <- top20_sig_norm %>%
+  gather(colnames(top20_sig_norm)[2:length(colnames(top20_sig_norm))], key = "samplename", value = "normalized_counts")
+
+
+tab <- ei[, c("sample_id", "group_id" )]
+tab$sample_id <- recode(tab$sample_id, "18m45M"="X18m45M", "18m46F"= "X18m46F", "18m47F"="X18m47F","18m53M"="X18m53M","24m60M"="X24m60M", "3m10M"="X3m10M", "3m39F"="X3m39F", "3m8M"="X3m8M","3m9M"="X3m9M")
+
+gathered_top20_sig <- inner_join(tab, gathered_top20_sig, by = c("sample_id" = "samplename"))
+
+
+## plot using ggplot2
+pdf(file=paste(dir,"result/endo/pseudobulk/vEC_bulk_ggplot_significant_genes.pdf",sep= "/" ),width=15, height=10)
+ggplot(gathered_top20_sig) +
+  geom_point(aes(x = gene, 
+                 y = normalized_counts, 
+                 color = group_id), 
+             position=position_jitter(w=0.1,h=0)) +
+  scale_y_log10() +
+  xlab("Genes") +
+  ylab("log10 Normalized Counts") +
+  ggtitle("Top 20 Significant DE Genes") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r}
+#Extract normalized counts for only the significant genes
+sig_norm <- data.frame(normalized_counts) %>%
+ rownames_to_column(var = "gene") %>%
+ dplyr::filter(gene %in% sig_res$gene)
+ # Set a color palette
+ heat_colors <- brewer.pal(6, "YlOrRd")
+
+sig_norm
+
+# colnames(sig_norm) <- c("gene","18m45M","18m46F","18m47F","18m53M","3m10M","3m39F","3m9M")
+# rownames(sig_norm) <- sig_norm$gene
+# 
+# #Run pheatmap using the metadata data frame for the annotation
+# pdf(file=paste(dir,"result/pseudobulk/vEC_heatmap_significant_genes.pdf",sep= "/" ),width=18, height=14)
+# pheatmap(sig_norm[ , 2:length(colnames(sig_norm))],
+#         color = heat_colors,
+#         cluster_rows = T,
+#         show_rownames = T,
+#         annotation = cluster_metadata[, c("group_id", "cluster_id")],
+#         border_color = NA,
+#         fontsize = 9,
+#         scale = "row",
+#         fontsize_row = 9,
+#         height = 20)
+
+```
+
+
+```{r}
+## Obtain logical vector where TRUE values denote padj values < 0.05 and fold change > 1.5 in either direction
+res_table_thres <- res_tbl %>% 
+  mutate(threshold = pvalue < 0.05)
+         #& abs(log2FoldChange) >= 0.58)
+
+## Volcano plot
+pdf(file=paste(dir,"result/endo/pseudobulk/vEC_bulk_volcano.pdf",sep= "/" ))
+ggplot(res_table_thres) +
+  geom_point(aes(x = log2FoldChange, y = -log(pvalue,base=10), colour = threshold)) +
+  ggtitle("Volcano plot of aged EC relative to young") +
+  xlab("log2 fold change") + 
+  ylab("-log10 p-value")+
+  # scale_y_continuous(limits = c(0.001050,0.001075)) +
+  theme(legend.position = "none",
+        plot.title = element_text(size = rel(1.5), hjust = 0.5),
+        axis.title = element_text(size = rel(1.25)))
+
+```
+
+```{r}
+df
+rownames(df) <- df$int_genes
+
+pdf(file=paste(dir,"result/endo/pseudobulk/all_heatmap.pdf",sep= "/" ),width=15, height=10)
+pheatmap(df[ , 2:length(colnames(df))],
+        color = heat_colors,
+        cluster_rows = T,
+        show_rownames = T,
+        border_color = NA,
+        fontsize = 10,
+        scale = "row",
+        fontsize_row = 10,
+        height = 20)
+```
+```{r}
+pdf(file=paste(dir,"result/endo/pseudobulk/int_genes/all_samples_heatmap.pdf",sep= "/" ),width=15, height=10)
+plotGroupedHeatmap(endo_cop, features=int_genes, group="sample_id", 
+    center=TRUE, zlim=c(-0.75, 0.75))
+```
+
+```{r}
+pdf(file=paste(dir,"result/endo/pseudobulk/int_genes/all_youngvsold_heatmap.pdf",sep= "/" ),width=15, height=10)
+plotGroupedHeatmap(endo_cop, features=int_genes, group="group_id", 
+    center=TRUE, zlim=c(-0.5, 0.5))
+```
+
+```{r}
+aEC1 <- endo_cop[,endo_cop$cluster_id=="aEC1"]
+pdf(file=paste(dir,"result/endo/pseudobulk/int_genes/aEC1_all_samples_heatmap.pdf",sep= "/" ),width=15, height=10)
+plotGroupedHeatmap(aEC1, features=int_genes, group="sample_id", 
+    center=TRUE, zlim=c(-0.75, 0.75))
+```
+
+```{r}
+pdf(file=paste(dir,"result/endo/pseudobulk/int_genes/aEC1_youngvsold_heatmap.pdf",sep= "/" ),width=15, height=10)
+plotGroupedHeatmap(aEC1, features=int_genes, group="group_id", 
+    center=TRUE, zlim=c(-0.5, 0.5))
+```
+
+```{r}
+aEC2 <- endo_cop[,endo_cop$cluster_id=="aEC2"]
+pdf(file=paste(dir,"result/endo/pseudobulk/int_genes/aEC2_all_samples_heatmap.pdf",sep= "/" ),width=15, height=10)
+plotGroupedHeatmap(aEC2, features=int_genes, group="sample_id", 
+    center=TRUE, zlim=c(-0.75, 0.75))
+```
+
+```{r}
+pdf(file=paste(dir,"result/endo/pseudobulk/int_genes/aEC2_youngvsold_heatmap.pdf",sep= "/" ),width=15, height=10)
+plotGroupedHeatmap(aEC2, features=int_genes, group="group_id", 
+    center=TRUE, zlim=c(-0.5, 0.5))
+```
+
+```{r}
+avEC <- endo_cop[,endo_cop$cluster_id=="avEC"]
+pdf(file=paste(dir,"result/endo/pseudobulk/int_genes/avEC_all_samples_heatmap.pdf",sep= "/" ),width=15, height=10)
+plotGroupedHeatmap(avEC, features=int_genes, group="sample_id", 
+    center=TRUE, zlim=c(-0.75, 0.75))
+```
+
+```{r}
+pdf(file=paste(dir,"result/endo/pseudobulk/int_genes/avEC_youngvsold_heatmap.pdf",sep= "/" ),width=15, height=10)
+plotGroupedHeatmap(avEC, features=int_genes, group="group_id", 
+    center=TRUE, zlim=c(-0.5, 0.5))
+```
+
+```{r}
+capEC <- endo_cop[,endo_cop$cluster_id=="capEC"]
+pdf(file=paste(dir,"result/endo/pseudobulk/int_genes/capEC_all_samples_heatmap.pdf",sep= "/" ),width=15, height=10)
+plotGroupedHeatmap(capEC, features=int_genes, group="sample_id", 
+    center=TRUE, zlim=c(-0.75, 0.75))
+```
+
+```{r}
+pdf(file=paste(dir,"result/endo/pseudobulk/int_genes/capEC_youngvsold_heatmap.pdf",sep= "/" ),width=15, height=10)
+plotGroupedHeatmap(capEC, features=int_genes, group="group_id", 
+    center=TRUE, zlim=c(-0.5, 0.5))
+```
+
+```{r}
+vcapEC <- endo_cop[,endo_cop$cluster_id=="vcapEC"]
+pdf(file=paste(dir,"result/endo/pseudobulk/int_genes/vcapEC_all_samples_heatmap.pdf",sep= "/" ),width=15, height=10)
+plotGroupedHeatmap(vcapEC, features=int_genes, group="sample_id", 
+    center=TRUE, zlim=c(-0.75, 0.75))
+```
+
+```{r}
+pdf(file=paste(dir,"result/endo/pseudobulk/int_genes/vcapEC_youngvsold_heatmap.pdf",sep= "/" ),width=15, height=10)
+plotGroupedHeatmap(vcapEC, features=int_genes, group="group_id", 
+    center=TRUE, zlim=c(-0.5, 0.5))
+```
+
+```{r}
+vEC <- endo_cop[,endo_cop$cluster_id=="vEC"]
+pdf(file=paste(dir,"result/endo/pseudobulk/int_genes/vEC_all_samples_heatmap.pdf",sep= "/" ),width=15, height=10)
+plotGroupedHeatmap(vEC, features=int_genes, group="sample_id", 
+    center=TRUE, zlim=c(-0.75, 0.75))
+```
+
+```{r}
+pdf(file=paste(dir,"result/endo/pseudobulk/int_genes/vEC_youngvsold_heatmap.pdf",sep= "/" ),width=15, height=10)
+plotGroupedHeatmap(vEC, features=int_genes, group="group_id", 
+    center=TRUE, zlim=c(-0.5, 0.5))
+```
+
+```{r}
+R.utils::setOption("clusterProfiler.download.method",'auto')
+```
+
+## enrich aEC1
+```{r}
+# Pathway analysis aEC1
+# Subset the significant genes with positive LFC
+aEC1_sig_lfc_up <- dplyr::filter(aEC1_sig_res, log2FoldChange > 0) %>%
+  dplyr::arrange(-log2FoldChange)
+# Check significant genes output
+aEC1_sig_lfc_up
+
+write.csv(aEC1_sig_lfc_up, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/aEC1_sig_lfc_up.csv",sep="/"))
+```
+
+```{r}
+# feature 1: numeric vector (log fold change)
+aEC1_sig_lfc_up <- data.frame(aEC1_sig_lfc_up)
+aEC1_upFC <- aEC1_sig_lfc_up[,3]
+names(aEC1_upFC) <- as.character(aEC1_sig_lfc_up[,1])
+aEC1_upFC <- sort(aEC1_upFC, decreasing = TRUE)
+```
+
+```{r Take top 50 higest FC}
+# aEC1_upFC_1 <- aEC1_upFC[1]
+# for (i in 2:50){
+#   aEC1_upFC_1 <- append(aEC1_upFC_1,aEC1_upFC[i])
+# }
+# aEC1_upFC_1
+# 
+# aEC1_upFC <- aEC1_upFC_1
+```
+
+
+```{r}
+aEC1_upFC <- bitr(names(aEC1_upFC), fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+aEC1_upFC <- aEC1_upFC$ENTREZID
+```
+
+```{r}
+aEC1_up_GObp <- enrichGO(gene = aEC1_upFC,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "BP",
+                      pAdjustMethod = "BH",
+                      # pvalueCutoff  = 1,
+                      # qvalueCutoff  = 1,
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+pdf(file=paste(dir, "result/endo/pseudobulk/enrichGO_arteriovenous/aEC1_up_GObp.pdf", sep= "/"),width=25, height=15)
+barplot(aEC1_up_GObp, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(aEC1_up_GObp, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/aEC1_up_GObp.csv",sep="/"))
+```
+
+
+```{r}
+aEC1_up_GOcc <- enrichGO(gene = aEC1_upFC,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "cc",
+                      pAdjustMethod = "BH",
+                      # pvalueCutoff  = 1,
+                      # qvalueCutoff  = 1,
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/aEC1_up_GOcc.pdf", sep="/"), width=25, height=15)
+barplot(aEC1_up_GOcc, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(aEC1_up_GOcc, file = paste(dir, "result/endo/pseudobulk/enrichGO_arteriovenous/aEC1_up_GOcc.csv", sep="/"))
+```
+
+```{r}
+aEC1_up_GOmf <- enrichGO(gene = aEC1_upFC,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "mf",
+                      pAdjustMethod = "BH",
+                      # pvalueCutoff  = 1,
+                      # qvalueCutoff  = 1,
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/aEC1_up_GOmf.pdf",sep="/"),width=25, height=15)
+barplot(aEC1_up_GOmf, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(aEC1_up_GOmf, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/aEC1_up_GOmf.csv",sep="/"))
+```
+
+```{r}
+aEC1_up_kegg <- enrichKEGG(gene = aEC1_upFC,
+                      organism = "mmu",
+                      keyType = "kegg",
+                      pAdjustMethod = "BH",
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05)
+pdf(file= paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/aEC1_up_kegg.pdf",sep="/") ,width=15, height=7)
+barplot(aEC1_up_kegg, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(aEC1_up_kegg, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/aEC1_up_kegg.csv",sep="/"))
+```
+
+```{r}
+# Subset the significant genes with negative LFC
+aEC1_sig_lfc_down <- dplyr::filter(aEC1_sig_res, log2FoldChange < 0) %>%
+  dplyr::arrange(log2FoldChange)
+# Check significant genes output
+aEC1_sig_lfc_down
+
+write.csv(aEC1_sig_lfc_down, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/aEC1_sig_lfc_down.csv",sep="/"))
+```
+
+```{r}
+# feature 1: numeric vector (log fold change)
+aEC1_sig_lfc_down <- data.frame(aEC1_sig_lfc_down)
+aEC1_downFC <- aEC1_sig_lfc_down[,3]
+names(aEC1_downFC) <- as.character(aEC1_sig_lfc_down[,1])
+# aEC1_downFC <- sort(aEC1_downFC, decreasing = FALSE)
+aEC1_downFC <- sort(aEC1_downFC, decreasing = TRUE) # 48 genes
+```
+
+```{r}
+aEC1_downFC <- bitr(names(aEC1_downFC), fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+aEC1_downFC <- aEC1_downFC$ENTREZID
+```
+
+```{r}
+aEC1_down_GObp <- enrichGO(gene = aEC1_downFC,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "BP",
+                      pAdjustMethod = "BH",
+                      # pvalueCutoff  = 1,
+                      # qvalueCutoff  = 1,
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/aEC1_down_GObp.pdf",sep="/"),width=25, height=15)
+barplot(aEC1_down_GObp, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(aEC1_down_GObp, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/aEC1_down_GObp.csv",sep="/"))
+```
+
+```{r}
+aEC1_down_GOcc <- enrichGO(gene = aEC1_downFC,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "cc",
+                      pAdjustMethod = "BH",
+                      # pvalueCutoff  = 1,
+                      # qvalueCutoff  = 1,
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/aEC1_down_GOcc.pdf",sep="/"),width=25, height=15)
+barplot(aEC1_down_GOcc, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(aEC1_down_GOcc, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/aEC1_down_GOcc.csv",sep="/"))
+```
+
+```{r}
+aEC1_down_GOmf <- enrichGO(gene = aEC1_downFC,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "mf",
+                      pAdjustMethod = "BH",
+                      # pvalueCutoff  = 1,
+                      # qvalueCutoff  = 1,
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/aEC1_down_GOmf.pdf",sep="/"),width=25, height=15)
+barplot(aEC1_down_GOmf, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(aEC1_down_GOmf, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/aEC1_down_GOmf.pdf",sep="/"))
+```
+
+```{r}
+aEC1_down_kegg <- enrichKEGG(gene = aEC1_downFC,
+                      organism = "mmu",
+                      keyType = "kegg",
+                      pAdjustMethod = "BH",
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/aEC1_down_kegg.pdf",sep="/"),width=15, height=7)
+barplot(aEC1_down_kegg, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(aEC1_down_kegg, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/aEC1_down_kegg.csv",sep="/"))
+```
+
+## enrich aEC2
+```{r}
+# Pathway analysis aEC2
+# Subset the significant genes with positive LFC
+aEC2_sig_lfc_up <- dplyr::filter(aEC2_sig_res, log2FoldChange > 0) %>%
+  dplyr::arrange(-log2FoldChange)
+# Check significant genes output
+aEC2_sig_lfc_up
+
+write.csv(aEC2_sig_lfc_up, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/aEC2_sig_lfc_up.csv",sep="/"))
+```
+
+```{r}
+# feature 1: numeric vector (log fold change)
+aEC2_sig_lfc_up <- data.frame(aEC2_sig_lfc_up)
+aEC2_upFC <- aEC2_sig_lfc_up[,3]
+names(aEC2_upFC) <- as.character(aEC2_sig_lfc_up[,1])
+aEC2_upFC <- sort(aEC2_upFC, decreasing = TRUE)
+```
+
+```{r}
+aEC2_upFC <- bitr(names(aEC2_upFC), fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+aEC2_upFC <- aEC2_upFC$ENTREZID
+```
+
+```{r}
+aEC2_up_GObp <- enrichGO(gene = aEC2_upFC,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "BP",
+                      pAdjustMethod = "BH",
+                      # pvalueCutoff  = 1,
+                      # qvalueCutoff  = 1,
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/aEC2_up_GObp.pdf",sep="/"),width=25, height=15)
+barplot(aEC2_up_GObp, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(aEC2_up_GObp, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/aEC2_up_GObp.csv",sep="/"))
+```
+
+```{r}
+aEC2_up_GOcc <- enrichGO(gene = aEC2_upFC,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "cc",
+                      pAdjustMethod = "BH",
+                      # pvalueCutoff  = 1,
+                      # qvalueCutoff  = 1,
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/aEC2_up_GOcc.pdf",sep="/"),width=25, height=15)
+barplot(aEC2_up_GOcc, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(aEC2_up_GOcc, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/aEC2_up_GOcc.csv",sep="/"))
+```
+
+```{r}
+aEC2_up_GOmf <- enrichGO(gene = aEC2_upFC,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "mf",
+                      pAdjustMethod = "BH",
+                      # pvalueCutoff  = 1,
+                      # qvalueCutoff  = 1,
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/aEC2_up_GOmf.pdf",sep="/"),width=25, height=15)
+barplot(aEC2_up_GOmf, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(aEC2_up_GOmf, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/aEC2_up_GOmf.csv",sep="/"))
+```
+
+
+```{r}
+aEC2_up_kegg <- enrichKEGG(gene = aEC2_upFC,
+                      organism = "mmu",
+                      keyType = "kegg",
+                      pAdjustMethod = "BH",
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/aEC2_up_kegg.pdf",sep="/"),width=15, height=7)
+barplot(aEC2_up_kegg, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(aEC2_up_kegg, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/aEC2_up_kegg.csv",sep="/"))
+```
+
+```{r}
+# Subset the significant genes with negative LFC
+aEC2_sig_lfc_down <- dplyr::filter(aEC2_sig_res, log2FoldChange < 0) %>%
+  dplyr::arrange(log2FoldChange)
+# Check significant genes output
+aEC2_sig_lfc_down
+
+write.csv(aEC2_sig_lfc_down, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/aEC2_sig_lfc_down.csv",sep="/"))
+```
+
+```{r}
+# feature 1: numeric vector (log fold change)
+aEC2_sig_lfc_down <- data.frame(aEC2_sig_lfc_down)
+aEC2_downFC <- aEC2_sig_lfc_down[,3]
+names(aEC2_downFC) <- as.character(aEC2_sig_lfc_down[,1])
+aEC2_downFC <- sort(aEC2_downFC, decreasing = TRUE)
+# aEC2_downFC <- sort(aEC2_downFC, decreasing = FALSE)
+```
+
+
+```{r}
+aEC2_downFC <- bitr(names(aEC2_downFC), fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+aEC2_downFC <- aEC2_downFC$ENTREZID
+```
+
+```{r}
+aEC2_down_GObp <- enrichGO(gene = aEC2_downFC,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "BP",
+                      pAdjustMethod = "BH",
+                      # pvalueCutoff  = 1,
+                      # qvalueCutoff  = 1,
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/aEC2_down_GObp.pdf",sep="/"),width=25, height=15)
+barplot(aEC2_down_GObp, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(aEC2_down_GObp, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/aEC2_down_GObp.csv",sep="/"))
+```
+
+```{r}
+aEC2_down_GOcc <- enrichGO(gene = aEC2_downFC,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "cc",
+                      pAdjustMethod = "BH",
+                      # pvalueCutoff  = 1,
+                      # qvalueCutoff  = 1,
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/aEC2_down_GOcc.pdf",sep="/"),width=25, height=15)
+barplot(aEC2_down_GOcc, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(aEC2_down_GOcc, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/aEC2_down_GOcc.csv",sep="/"))
+```
+```{r}
+aEC2_down_GOmf <- enrichGO(gene = aEC2_downFC,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "mf",
+                      pAdjustMethod = "BH",
+                      # pvalueCutoff  = 1,
+                      # qvalueCutoff  = 1,
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/aEC2_down_GOmf.pdf",sep="/"),width=25, height=15)
+barplot(aEC2_down_GOmf, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(aEC2_down_GOmf, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/aEC2_down_GOmf.csv",sep="/"))
+```
+```{r}
+aEC2_down_kegg <- enrichKEGG(gene = aEC2_downFC,
+                      organism = "mmu",
+                      keyType = "kegg",
+                      pAdjustMethod = "BH",
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/aEC2_down_kegg.pdf",sep="/"),width=15, height=7)
+barplot(aEC2_down_kegg, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(aEC2_down_kegg, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/aEC2_down_kegg.csv",sep="/"))
+```
+
+## avEC
+```{r}
+# Pathway analysis avEC
+# Subset the significant genes with positive LFC
+avEC_sig_lfc_up <- dplyr::filter(avEC_sig_res, log2FoldChange > 0) %>%
+  dplyr::arrange(-log2FoldChange)
+# Check significant genes output
+avEC_sig_lfc_up
+
+write.csv(avEC_sig_lfc_up, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/avEC_sig_lfc_up.csv",sep="/"))
+```
+
+```{r}
+# feature 1: numeric vector (log fold change)
+avEC_sig_lfc_up <- data.frame(avEC_sig_lfc_up)
+avEC_upFC <- avEC_sig_lfc_up[,3]
+names(avEC_upFC) <- as.character(avEC_sig_lfc_up[,1])
+avEC_upFC <- sort(avEC_upFC, decreasing = TRUE)
+```
+
+```{r}
+avEC_upFC <- bitr(names(avEC_upFC), fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+avEC_upFC <- avEC_upFC$ENTREZID
+```
+
+```{r}
+avEC_up_GObp <- enrichGO(gene = avEC_upFC,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "BP",
+                      pAdjustMethod = "BH",
+                      # pvalueCutoff  = 1,
+                      # qvalueCutoff  = 1,
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/avEC_up_GObp.pdf",sep="/"),width=25, height=15)
+barplot(avEC_up_GObp, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(avEC_up_GObp, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/avEC_up_GObp.csv",sep="/"))
+```
+
+```{r}
+avEC_up_GOcc <- enrichGO(gene = avEC_upFC,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "cc",
+                      pAdjustMethod = "BH",
+                      # pvalueCutoff  = 1,
+                      # qvalueCutoff  = 1,
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/avEC_up_GOcc.pdf",sep="/"),width=25, height=15)
+barplot(avEC_up_GOcc, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(avEC_up_GOcc, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/avEC_up_GOcc.csv",sep="/"))
+```
+
+```{r}
+avEC_up_GOmf <- enrichGO(gene = avEC_upFC,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "mf",
+                      pAdjustMethod = "BH",
+                      # pvalueCutoff  = 1,
+                      # qvalueCutoff  = 1,
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+pdf(file="result/endo/pseudobulk/enrichGO_arteriovenous/avEC_up_GOmf.pdf",width=25, height=15)
+barplot(avEC_up_GOmf, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(avEC_up_GOmf, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/avEC_up_GOmf.csv",sep="/"))
+```
+
+```{r}
+avEC_up_kegg <- enrichKEGG(gene = avEC_upFC,
+                      organism = "mmu",
+                      keyType = "kegg",
+                      pAdjustMethod = "BH",
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/avEC_up_kegg.pdf",sep="/"),width=15, height=7)
+barplot(avEC_up_kegg, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(avEC_up_kegg, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/avEC_up_kegg.csv",sep="/"))
+```
+
+```{r}
+# Subset the significant genes with negative LFC
+avEC_sig_lfc_down <- dplyr::filter(avEC_sig_res, log2FoldChange < 0) %>%
+  dplyr::arrange(log2FoldChange)
+# Check significant genes output
+avEC_sig_lfc_down
+
+write.csv(avEC_sig_lfc_down, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/avEC_sig_lfc_down.csv",sep="/"))
+```
+
+```{r}
+# feature 1: numeric vector (log fold change)
+avEC_sig_lfc_down <- data.frame(avEC_sig_lfc_down)
+avEC_downFC <- avEC_sig_lfc_down[,3]
+names(avEC_downFC) <- as.character(avEC_sig_lfc_down[,1])
+avEC_downFC <- sort(avEC_downFC, decreasing = TRUE)
+# avEC_downFC <- sort(avEC_downFC, decreasing = FALSE) # 33 genes
+```
+
+```{r}
+avEC_downFC <- bitr(names(avEC_downFC), fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+avEC_downFC <- avEC_downFC$ENTREZID
+```
+
+```{r}
+avEC_down_GObp <- enrichGO(gene = avEC_downFC,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "BP",
+                      pAdjustMethod = "BH",
+                      # pvalueCutoff  = 1,
+                      # qvalueCutoff  = 1,
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/avEC_down_GObp.pdf",sep="/"),width=25, height=15)
+barplot(avEC_down_GObp, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(avEC_down_GObp, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/avEC_down_GObp.csv",sep="/"))
+```
+
+```{r}
+avEC_down_GOcc <- enrichGO(gene = avEC_downFC,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "cc",
+                      pAdjustMethod = "BH",
+                      # pvalueCutoff  = 1,
+                      # qvalueCutoff  = 1,
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/avEC_down_GOcc.pdf",sep="/"),width=25, height=15)
+barplot(avEC_down_GOcc, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(avEC_down_GOcc, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/avEC_down_GOcc.csv",sep="/"))
+```
+
+```{r}
+avEC_down_GOmf <- enrichGO(gene = avEC_downFC,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "mf",
+                      pAdjustMethod = "BH",
+                      # pvalueCutoff  = 1,
+                      # qvalueCutoff  = 1,
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/avEC_down_GOmf.pdf",sep="/"),width=25, height=15)
+barplot(avEC_down_GOmf, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(avEC_down_GOmf, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/avEC_down_GOmf.csv",sep="/"))
+```
+
+```{r}
+avEC_down_kegg <- enrichKEGG(gene = avEC_downFC,
+                      organism = "mmu",
+                      keyType = "kegg",
+                      pAdjustMethod = "BH",
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/avEC_down_kegg.pdf",sep="/"),width=15, height=7)
+barplot(avEC_down_kegg, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(avEC_down_kegg, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/avEC_down_kegg.csv",sep="/"))
+```
+## enrich capEC
+```{r}
+# Pathway analysis capEC
+# Subset the significant genes with positive LFC
+capEC_sig_lfc_up <- dplyr::filter(capEC_sig_res, log2FoldChange > 0) %>%
+  dplyr::arrange(-log2FoldChange)
+# Check significant genes output
+capEC_sig_lfc_up
+
+write.csv(capEC_sig_lfc_up, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/capEC_sig_lfc_up.csv",sep="/"))
+```
+
+```{r}
+# feature 1: numeric vector (log fold change)
+capEC_sig_lfc_up <- data.frame(capEC_sig_lfc_up)
+capEC_upFC <- capEC_sig_lfc_up[,3]
+names(capEC_upFC) <- as.character(capEC_sig_lfc_up[,1])
+capEC_upFC <- sort(capEC_upFC, decreasing = TRUE)
+```
+
+```{r Take top 50 higest FC}
+# capEC_upFC_1 <- capEC_upFC[1]
+# for (i in 2:50){
+#   capEC_upFC_1 <- append(capEC_upFC_1,capEC_upFC[i])
+# }
+# capEC_upFC_1
+# 
+# capEC_upFC <- capEC_upFC_1
+```
+
+```{r}
+capEC_upFC <- bitr(names(capEC_upFC), fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+capEC_upFC <- capEC_upFC$ENTREZID
+```
+
+```{r}
+capEC_up_GObp <- enrichGO(gene = capEC_upFC,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "BP",
+                      pAdjustMethod = "BH",
+                      # pvalueCutoff  = 1,
+                      # qvalueCutoff  = 1,
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/capEC_up_GObp.pdf",sep="/"),width=25, height=15)
+barplot(capEC_up_GObp, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(capEC_up_GObp, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/capEC_up_GObp.csv",sep="/"))
+```
+
+```{r}
+capEC_up_GOcc <- enrichGO(gene = capEC_upFC,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "cc",
+                      pAdjustMethod = "BH",
+                      # pvalueCutoff  = 1,
+                      # qvalueCutoff  = 1,
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/capEC_up_GOcc.pdf",sep="/"),width=25, height=15)
+barplot(capEC_up_GOcc, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(capEC_up_GOcc, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/capEC_up_GOcc.csv",sep="/"))
+```
+
+```{r}
+capEC_up_GOmf <- enrichGO(gene = capEC_upFC,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "mf",
+                      pAdjustMethod = "BH",
+                      # pvalueCutoff  = 1,
+                      # qvalueCutoff  = 1,
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/capEC_up_GOcmf.pdf",sep="/"),width=25, height=15)
+barplot(capEC_up_GOmf, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(capEC_up_GOmf, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/capEC_up_GOmf.csv",sep="/"))
+```
+
+```{r}
+capEC_up_kegg <- enrichKEGG(gene = capEC_upFC,
+                      organism = "mmu",
+                      keyType = "kegg",
+                      pAdjustMethod = "BH",
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/capEC_up_kegg.pdf",sep="/"),width=15, height=7)
+barplot(capEC_up_kegg, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(capEC_up_kegg, file =  paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/capEC_up_kegg.csv",sep="/"))
+```
+
+```{r}
+# Subset the significant genes with negative LFC
+capEC_sig_lfc_down <- dplyr::filter(capEC_sig_res, log2FoldChange < 0) %>%
+  dplyr::arrange(log2FoldChange)
+# Check significant genes output
+capEC_sig_lfc_down
+
+write.csv(capEC_sig_lfc_down, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/capEC_sig_lfc_down.csv",sep="/"))
+```
+
+```{r}
+# feature 1: numeric vector (log fold change)
+capEC_sig_lfc_down <- data.frame(capEC_sig_lfc_down)
+capEC_downFC <- capEC_sig_lfc_down[,3]
+names(capEC_downFC) <- as.character(capEC_sig_lfc_down[,1])
+# capEC_downFC <- sort(capEC_downFC, decreasing = FALSE)
+capEC_downFC <- sort(capEC_downFC, decreasing = TRUE)
+```
+
+```{r}
+capEC_downFC <- bitr(names(capEC_downFC), fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+capEC_downFC <- capEC_downFC$ENTREZID
+```
+
+```{r}
+capEC_down_GObp <- enrichGO(gene = capEC_downFC,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "BP",
+                      pAdjustMethod = "BH",
+                      # pvalueCutoff  = 1,
+                      # qvalueCutoff  = 1,
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/capEC_down_GObp.pdf",sep="/"),width=25, height=15)
+barplot(capEC_down_GObp, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(capEC_down_GObp, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/capEC_down_GObp.csv",sep="/"))
+```
+
+```{r}
+capEC_down_GOcc <- enrichGO(gene = capEC_downFC,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "cc",
+                      pAdjustMethod = "BH",
+                      # pvalueCutoff  = 1,
+                      # qvalueCutoff  = 1,
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/capEC_down_GOcc.pdf",sep="/"),width=25, height=15)
+barplot(capEC_down_GOcc, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(capEC_down_GOcc, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/capEC_down_GOcc.csv",sep="/"))
+```
+
+```{r}
+capEC_down_GOmf <- enrichGO(gene = capEC_downFC,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "mf",
+                      pAdjustMethod = "BH",
+                      # pvalueCutoff  = 1,
+                      # qvalueCutoff  = 1,
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/capEC_down_GOmf.pdf",sep="/"),width=25, height=15)
+barplot(capEC_down_GOmf, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(capEC_down_GOmf, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/capEC_down_GOmf.csv",sep="/"))
+```
+
+```{r}
+capEC_down_kegg <- enrichKEGG(gene = capEC_downFC,
+                      organism = "mmu",
+                      keyType = "kegg",
+                      pAdjustMethod = "BH",
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/capEC_down_kegg.pdf",sep="/"),width=15, height=7)
+barplot(capEC_down_kegg, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(capEC_down_kegg, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/capEC_down_kegg.csv",sep="/"))
+```
+
+
+## enrich vcapEC
+```{r}
+# Pathway analysis vcapEC
+# Subset the significant genes with positive LFC
+vcapEC_sig_lfc_up <- dplyr::filter(vcapEC_sig_res, log2FoldChange > 0) %>%
+  dplyr::arrange(-log2FoldChange)
+# Check significant genes output
+vcapEC_sig_lfc_up
+
+write.csv(vcapEC_sig_lfc_up, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/vcapEC_sig_lfc_up.csv",sep="/"))
+```
+
+```{r}
+# feature 1: numeric vector (log fold change)
+vcapEC_sig_lfc_up <- data.frame(vcapEC_sig_lfc_up)
+vcapEC_upFC <- vcapEC_sig_lfc_up[,3]
+names(vcapEC_upFC) <- as.character(vcapEC_sig_lfc_up[,1])
+vcapEC_upFC <- sort(vcapEC_upFC, decreasing = TRUE)
+```
+
+```{r}
+vcapEC_upFC <- bitr(names(vcapEC_upFC), fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+vcapEC_upFC <- vcapEC_upFC$ENTREZID
+```
+
+```{r}
+vcapEC_up_GObp <- enrichGO(gene = vcapEC_upFC,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "BP",
+                      pAdjustMethod = "BH",
+                      # pvalueCutoff  = 1,
+                      # qvalueCutoff  = 1,
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/vcapEC_up_GObp.pdf",sep="/"),width=25, height=15)
+barplot(vcapEC_up_GObp, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(vcapEC_up_GObp, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/vcapEC_up_GObp.csv",sep="/"))
+```
+
+```{r}
+vcapEC_up_GOcc <- enrichGO(gene = vcapEC_upFC,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "cc",
+                      pAdjustMethod = "BH",
+                      # pvalueCutoff  = 1,
+                      # qvalueCutoff  = 1,
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/vcapEC_up_GOcc.pdf",sep="/"),width=25, height=15)
+barplot(vcapEC_up_GOcc, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(vcapEC_up_GOcc, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/vcapEC_up_GOcc.csv",sep="/"))
+```
+
+```{r}
+vcapEC_up_GOmf <- enrichGO(gene = vcapEC_upFC,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "mf",
+                      pAdjustMethod = "BH",
+                      # pvalueCutoff  = 1,
+                      # qvalueCutoff  = 1,
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/vcapEC_up_GOmf.pdf",sep="/"),width=25, height=15)
+barplot(vcapEC_up_GOmf, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(vcapEC_up_GOmf, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/vcapEC_up_GOmf.csv",sep="/"))
+```
+
+```{r}
+vcapEC_up_kegg <- enrichKEGG(gene = vcapEC_upFC,
+                      organism = "mmu",
+                      keyType = "kegg",
+                      pAdjustMethod = "BH",
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/vcapEC_up_kegg.pdf",sep="/"),width=15, height=7)
+barplot(vcapEC_up_kegg, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(vcapEC_up_kegg, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/vcapEC_up_kegg.csv",sep="/"))
+```
+
+```{r}
+# Subset the significant genes with negative LFC
+vcapEC_sig_lfc_down <- dplyr::filter(vcapEC_sig_res, log2FoldChange < 0) %>%
+  dplyr::arrange(log2FoldChange)
+# Check significant genes output
+vcapEC_sig_lfc_down
+
+write.csv(vcapEC_sig_lfc_down, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/vcapEC_sig_lfc_down.csv",sep="/"))
+```
+
+```{r}
+# feature 1: numeric vector (log fold change)
+vcapEC_sig_lfc_down <- data.frame(vcapEC_sig_lfc_down)
+vcapEC_downFC <- vcapEC_sig_lfc_down[,3]
+names(vcapEC_downFC) <- as.character(vcapEC_sig_lfc_down[,1])
+# vcapEC_downFC <- sort(vcapEC_downFC, decreasing = FALSE)
+vcapEC_downFC <- sort(vcapEC_downFC, decreasing = TRUE)
+```
+
+```{r}
+vcapEC_downFC <- bitr(names(vcapEC_downFC), fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+vcapEC_downFC <- vcapEC_downFC$ENTREZID
+```
+
+```{r}
+vcapEC_down_GObp <- enrichGO(gene = vcapEC_downFC,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "BP",
+                      pAdjustMethod = "BH",
+                      # pvalueCutoff  = 1,
+                      # qvalueCutoff  = 1,
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/vcapEC_down_GObp.pdf",sep="/"),width=25, height=15)
+barplot(vcapEC_down_GObp, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(vcapEC_down_GObp, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/vcapEC_down_GObp.csv",sep="/"))
+```
+
+```{r}
+vcapEC_down_GOcc <- enrichGO(gene = vcapEC_downFC,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "cc",
+                      pAdjustMethod = "BH",
+                      # pvalueCutoff  = 1,
+                      # qvalueCutoff  = 1,
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/vcapEC_down_GOcc.pdf",sep="/"),width=25, height=15)
+barplot(vcapEC_down_GOcc, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(vcapEC_down_GOcc, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/vcapEC_down_GOcc.csv",sep="/"))
+```
+
+```{r}
+vcapEC_down_GOmf <- enrichGO(gene = vcapEC_downFC,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "mf",
+                      pAdjustMethod = "BH",
+                      # pvalueCutoff  = 1,
+                      # qvalueCutoff  = 1,
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/vcapEC_down_GOmf.pdf",sep="/"),width=25, height=15)
+barplot(vcapEC_down_GOmf, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(vcapEC_down_GOmf, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/vcapEC_down_GOmf.csv",sep="/"))
+```
+
+```{r}
+vcapEC_down_kegg <- enrichKEGG(gene = vcapEC_downFC,
+                      organism = "mmu",
+                      keyType = "kegg",
+                      pAdjustMethod = "BH",
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/vcapEC_down_kegg.pdf",sep="/"),width=15, height=7)
+barplot(vcapEC_down_kegg, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(vcapEC_down_kegg, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/vcapEC_down_kegg.csv",sep="/"))
+```
+
+## enrich vEC
+```{r}
+# Pathway analysis vEC
+# Subset the significant genes with positive LFC
+vEC_sig_lfc_up <- dplyr::filter(vEC_sig_res, log2FoldChange > 0) %>%
+  dplyr::arrange(-log2FoldChange)
+# Check significant genes output
+vEC_sig_lfc_up
+
+write.csv(vEC_sig_lfc_up, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/vEC_sig_lfc_up.csv",sep="/"))
+```
+
+```{r}
+# feature 1: numeric vector (log fold change)
+vEC_sig_lfc_up <- data.frame(vEC_sig_lfc_up)
+vEC_upFC <- vEC_sig_lfc_up[,3]
+names(vEC_upFC) <- as.character(vEC_sig_lfc_up[,1])
+vEC_upFC <- sort(vEC_upFC, decreasing = TRUE)
+```
+
+```{r}
+vEC_upFC <- bitr(names(vEC_upFC), fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+vEC_upFC <- vEC_upFC$ENTREZID
+```
+
+```{r}
+vEC_up_GObp <- enrichGO(gene = vEC_upFC,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "BP",
+                      pAdjustMethod = "BH",
+                      # pvalueCutoff  = 1,
+                      # qvalueCutoff  = 1,
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/vEC_up_GObp.pdf",sep="/"),width=25, height=15)
+barplot(vEC_up_GObp, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(vEC_up_GObp, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/vEC_up_GObp.csv",sep="/"))
+```
+
+```{r}
+vEC_up_GOcc <- enrichGO(gene = vEC_upFC,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "cc",
+                      pAdjustMethod = "BH",
+                      # pvalueCutoff  = 1,
+                      # qvalueCutoff  = 1,
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/vEC_up_GOcc.pdf",sep="/"),width=25, height=15)
+barplot(vEC_up_GOcc, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(vEC_up_GOcc, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/vEC_up_GOcc.csv",sep="/"))
+```
+
+```{r}
+vEC_up_GOmf <- enrichGO(gene = vEC_upFC,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "mf",
+                      pAdjustMethod = "BH",
+                      # pvalueCutoff  = 1,
+                      # qvalueCutoff  = 1,
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/vEC_up_GOmf.pdf",sep="/"),width=25, height=15)
+barplot(vEC_up_GOmf, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(vEC_up_GOmf, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/vEC_up_GOmf.csv",sep="/"))
+```
+
+```{r}
+vEC_up_kegg <- enrichKEGG(gene = vEC_upFC,
+                      organism = "mmu",
+                      keyType = "kegg",
+                      pAdjustMethod = "BH",
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/vEC_up_kegg.pdf",sep="/"),width=15, height=7)
+barplot(vEC_up_kegg, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(vEC_up_kegg, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/vEC_up_kegg.csv",sep="/"))
+```
+
+```{r}
+# Subset the significant genes with negative LFC
+vEC_sig_lfc_down <- dplyr::filter(vEC_sig_res, log2FoldChange < 0) %>%
+  dplyr::arrange(log2FoldChange)
+# Check significant genes output
+vEC_sig_lfc_down
+
+write.csv(vEC_sig_lfc_down, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/vEC_sig_lfc_down.csv",sep="/"))
+```
+
+```{r}
+# feature 1: numeric vector (log fold change)
+vEC_sig_lfc_down <- data.frame(vEC_sig_lfc_down)
+vEC_downFC <- vEC_sig_lfc_down[,3]
+names(vEC_downFC) <- as.character(vEC_sig_lfc_down[,1])
+# vEC_downFC <- sort(vEC_downFC, decreasing = FALSE)
+length(vEC_downFC) # 32 genes
+vEC_downFC <- sort(vEC_downFC, decreasing = TRUE)
+```
+
+```{r}
+vEC_downFC <- bitr(names(vEC_downFC), fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+vEC_downFC <- vEC_downFC$ENTREZID
+```
+
+```{r}
+vEC_down_GObp <- enrichGO(gene = vEC_downFC,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "BP",
+                      pAdjustMethod = "BH",
+                      # pvalueCutoff  = 1,
+                      # qvalueCutoff  = 1,
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/vEC_down_GObp.pdf",sep="/"),width=25, height=15)
+barplot(vEC_down_GObp, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(vEC_down_GObp, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/vEC_down_GObp.csv",sep="/"))
+```
+
+```{r}
+vEC_down_GOcc <- enrichGO(gene = vEC_downFC,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "cc",
+                      pAdjustMethod = "BH",
+                      # pvalueCutoff  = 1,
+                      # qvalueCutoff  = 1,
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/vEC_down_GOcc.pdf",sep="/"),width=25, height=15)
+barplot(vEC_down_GOcc, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(vEC_down_GOcc, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/vEC_down_GOcc.csv",sep="/"))
+```
+
+```{r}
+vEC_down_GOmf <- enrichGO(gene = vEC_downFC,
+                      OrgDb = org.Mm.eg.db,
+                      ont           = "mf",
+                      pAdjustMethod = "BH",
+                      # pvalueCutoff  = 1,
+                      # qvalueCutoff  = 1,
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05,
+                      readable      = TRUE)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/vEC_down_GOmf.pdf",sep="/"),width=25, height=15)
+barplot(vEC_down_GOmf, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(vEC_down_GOmf, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/vEC_down_GOmf.csv",sep="/"))
+```
+
+```{r}
+vEC_down_kegg <- enrichKEGG(gene = vEC_downFC,
+                      organism = "mmu",
+                      keyType = "kegg",
+                      pAdjustMethod = "BH",
+                      pvalueCutoff  = 0.05,
+                      qvalueCutoff  = 0.05)
+pdf(file=paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/vEC_down_kegg.pdf",sep="/"),width=15, height=7)
+barplot(vEC_down_kegg, showCategory=35) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=12))
+write.csv(vEC_down_kegg, file = paste(dir,"result/endo/pseudobulk/enrichGO_arteriovenous/vEC_down_kegg.csv",sep="/"))
+```

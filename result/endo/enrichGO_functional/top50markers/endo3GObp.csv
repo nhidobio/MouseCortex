@@ -1,0 +1,10 @@
+"","ID","Description","GeneRatio","BgRatio","pvalue","p.adjust","qvalue","geneID","Count"
+"GO:0050673","GO:0050673","epithelial cell proliferation","9/43","476/28814",2.91170609688541e-08,3.49695902235938e-05,2.52245696603862e-05,"Gkn3/Hey1/Vegfc/Mmrn2/Efnb2/Glul/Ccnd2/Nr4a1/Igfbp3",9
+"GO:0050678","GO:0050678","regulation of epithelial cell proliferation","8/43","405/28814",1.34110198775266e-07,8.05331743645475e-05,5.80908913642338e-05,"Gkn3/Hey1/Vegfc/Mmrn2/Efnb2/Glul/Ccnd2/Nr4a1",8
+"GO:0002040","GO:0002040","sprouting angiogenesis","5/43","125/28814",1.19577845896582e-06,0.000478709976405984,0.000345307253238201,"Vegfc/Mmrn2/Efnb2/Glul/Nr4a1",5
+"GO:0001503","GO:0001503","ossification","7/43","421/28814",2.76843975951058e-06,0.000831224037793051,0.000599585768967686,"Alpl/Hey1/Mgp/Vegfc/Cthrc1/Kazald1/Igfbp3",7
+"GO:0043542","GO:0043542","endothelial cell migration","5/43","228/28814",2.23662755357512e-05,0.00537237938368743,0.00387525152966804,"Vegfc/Mmrn2/Efnb2/Glul/Nr4a1",5
+"GO:0043534","GO:0043534","blood vessel endothelial cell migration","4/43","116/28814",2.72590241189213e-05,0.00545634799447074,0.00393582049997758,"Vegfc/Mmrn2/Efnb2/Nr4a1",4
+"GO:0001667","GO:0001667","ameboidal-type cell migration","6/43","452/28814",5.37506815845974e-05,0.0086798422388856,0.00626101946851558,"Vegfc/Mmrn2/Efnb2/Glul/Nr4a1/Edn3",6
+"GO:0032103","GO:0032103","positive regulation of response to external stimulus","6/43","458/28814",5.78174337311281e-05,0.0086798422388856,0.00626101946851558,"Cdk19/Vegfc/Mmrn2/Plscr1/Irf7/Edn3",6
+"GO:0002042","GO:0002042","cell migration involved in sprouting angiogenesis","3/43","53/28814",6.8839072919089e-05,0.00918619184175843,0.00662626397805968,"Mmrn2/Efnb2/Nr4a1",3

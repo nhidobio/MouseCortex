@@ -1,0 +1,5 @@
+"","ID","Description","GeneRatio","BgRatio","pvalue","p.adjust","qvalue","geneID","Count"
+"GO:0048306","GO:0048306","calcium-dependent protein binding","7/174","95/28275",2.07503869839856e-06,0.000956592839961738,0.000838752484405314,"Stmn2/Mgp/S100a11/S100a10/S100a16/Anxa2/Anxa7",7
+"GO:0005544","GO:0005544","calcium-dependent phospholipid binding","5/174","55/28275",2.25940589252357e-05,0.00501835410578473,0.00440015521548427,"Syt15/Anxa2/Anxa7/Anxa5/Pla2g4a",5
+"GO:0008083","GO:0008083","growth factor activity","7/174","148/28275",3.81935488605414e-05,0.00501835410578473,0.00440015521548427,"Vegfc/Kitl/Tgfb2/Jag2/Hbegf/Pdgfa/Pdgfd",7
+"GO:0070566","GO:0070566","adenylyltransferase activity","4/174","32/28275",4.35432026532297e-05,0.00501835410578473,0.00440015521548427,"Oas1a/Oasl2/Oas2/Papss1",4

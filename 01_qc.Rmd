@@ -1,0 +1,232 @@
+---
+title: "01_Quality_control"
+author: "Nhi Nguyen"
+date: "r Sys.Date()`"
+output: html_document
+---
+
+```{r}
+sessionInfo
+```
+
+```{r Install packages}
+# # Package names
+# packages <- c("knitr","ggplot2","clustree","pheatmap","gginnards","magrittr","stringr","tibble","ggplot2","ggraph","igraph","tidyverse","R.utils","intrinsicDimension","Matrix.utils")
+# 
+# # Install packages not yet installed
+# installed_packages <- packages %in% rownames(installed.packages())
+# if (any(installed_packages == FALSE)) {
+#   install.packages(packages[!installed_packages])
+# }
+# 
+# # Packages loading
+# invisible(lapply(packages, library, character.only = TRUE))
+# 
+# 
+# if (!require("BiocManager", quietly = TRUE))
+#     install.packages("BiocManager")
+# 
+# BiocManager::install(c("SingleCellExperiment","scater","DropletUtils","ExperimentSubset","MAST","bluster","scuttle","scran","batchelor","GSEABase","scDblFinder","clusterProfiler","org.Mm.eg.db","DOSE","ReactomePA","enrichplot","AUCell","apeglm","DESeq2"))
+```
+
+```{r Setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r Library loading}
+#Check for package updates if unable to load the library. Tools > Check for package updates
+library(Matrix)
+library(SingleCellExperiment)
+library(ggplot2)
+library(colorspace)
+library(scater)
+library(bluster)
+library(scuttle)
+library(scran)
+library(batchelor)
+library(clustree)
+library(pheatmap)
+library(GSEABase)
+library(scDblFinder)
+library(DropletUtils)
+library(ExperimentSubset)
+library(MAST)
+library(gginnards)
+library(magrittr)
+library(stringr)
+library(tibble)
+library(ggplot2)
+library(ggraph)
+library(igraph)
+library(tidyverse)
+library(clusterProfiler)
+library(org.Mm.eg.db)
+library(DOSE)
+library(ReactomePA)
+library(enrichplot)
+library(AUCell)
+library(viridis)
+```
+
+```{r}
+# File location
+dir <- getwd()
+dir
+```
+
+```{r}
+# Extract needed information
+cells <- read.table("data/Download_Non_myeloid/cells.csv", fill=T, sep=",",header=T)
+genes_info <- read.table("data/Download_Non_myeloid/genes_info.csv", fill=T, sep=",",header=T)
+counts <- readMM("data/Download_Non_myeloid/sparse_matrix.mtx")
+
+barcodes <- DataFrame(cells[c(4,9,3,11,13,14,2,5)])
+rownames(barcodes) <- cells$cell
+colnames(barcodes)[1] <- "ID"
+colnames(barcodes)[2] <- "Sample"
+
+genes <- DataFrame(genes_info[c(1,2)])
+rownames(genes) <- genes_info$index
+colnames(genes)[1] <- "Symbol"
+
+counts_2 <- t(counts)
+rownames(counts_2) <- genes_info$index
+# 22966 genes x 7249 cells
+```
+
+```{r}
+sce <- SingleCellExperiment(assays = list(counts=counts_2), colData=barcodes, rowData=genes)
+table(sce$subtissue)
+```
+
+```{r}
+# Select Cortex cells
+CRTX <- grepl("Cortex", colData(sce)$subtissue)
+cortex <- sce[,CRTX]
+cortex
+```
+```{r}
+#All the samples from the dataset
+table(cortex$Sample)
+```
+
+```{r}
+# Select sample with more than 100 cells
+cortex <- cortex[,cortex$Sample%in%c("18_45_M", "18_46_F", "18_47_F", "18_53_M", "3_10_M", "3_39_F", "3_8_M", "3_9_M","24_60_M")]
+table(cortex$Sample)
+cortex
+```
+```{r Get gene list with "Mt" at the begging}
+rowData(cortex)
+Mt_genes <- rowData(cortex[grep("^Mt", rowData(cortex)$Symbol),])
+Mt_genes$Symbol
+length(Mt_genes$Symbol)
+
+Mt_genes.df <- bitr(Mt_genes$Symbol, fromType = "SYMBOL",
+         toType = c("SYMBOL", "ENSEMBL","GENENAME"),
+         OrgDb = org.Mm.eg.db)
+Mt_genes.df
+write.csv(Mt_genes.df,file = "data/Mt_genes.csv")
+
+mitochondrial_genes <- c("Mtch1","Mtch2","Mtfmt","Mtfp1","Mtfr1","Mtg1","Mtif2","Mtif3","Mto1","Mtpap","Mtrf1","Mtrf1l","Mtus1")
+length(mitochondrial_genes)
+```
+
+```{r Quality control metrics and filtering}
+set.seed(1234)
+cortex.QC <- perCellQCMetrics(cortex, subsets = list(mito = grep("Mtch1|Mtch2|Mtfmt|Mtfp1|Mtfr1|Mtg1|Mtif2|Mtif3|Mto1|Mtpap|Mtrf1|Mtrf1l|Mtus1", rowData(cortex)$Symbol),
+# malat1 = grep("Malat1", rowData(cortex)$Symbol),
+ribo = grep("^Mrpl|^Mrps|^Rpl|^Rps", rowData(cortex)$Symbol)))
+
+low.lib <- isOutlier(log10(cortex.QC$sum), type = "lower", nmad =3, batch = colData(cortex)$Sample)
+low.genes <- isOutlier(log10(cortex.QC$detected), type = "lower", nmad =3, batch = colData(cortex)$Sample)
+high.mt <- isOutlier(cortex.QC$subsets_mito_percent, type = "higher", nmad = 3, batch = colData(cortex)$Sample)
+high.ribo <- isOutlier(cortex.QC$subsets_ribo_percent, type = "higher", nmad = 3, batch = colData(cortex)$Sample)
+# high.malat1 <- isOutlier(cortex.QC$subsets_malat1_percent, type = "higher", nmad = 3, batch = colData(cortex)$Sample)
+data.frame(LowLib=sum(low.lib), LowNgenes=sum(low.genes), Highmt = sum(high.mt),  Highribo = sum(high.ribo))
+```
+
+```{r Discard low qualities count}
+cortex.QC$discard <- low.lib | low.genes | high.mt | high.ribo 
+table(cortex.QC$discard)
+
+# FALSE  TRUE 
+#  2361   297 
+```
+
+```{r Plot distribution of QC metrics}
+# Plot distribution of each QC metric, highlighting barcodes marked for elimination 
+colData(cortex) <- cbind(colData(cortex), cortex.QC)
+cortex$discard <- cortex.QC$discard
+
+pdf(file="result/quality_control/QC_plot.pdf", width=15, height=15)
+gridExtra::grid.arrange(
+    plotColData(cortex, y="sum", x= "Sample", colour_by="discard") +
+        scale_y_log10() + ggtitle("Total count"),
+    plotColData(cortex, y="detected", x= "Sample", colour_by="discard") +
+        scale_y_log10() + ggtitle("Detected features"),
+    plotColData(cortex, y="subsets_mito_percent", x= "Sample",
+        colour_by="discard") + ggtitle("Mito percent"),
+    plotColData(cortex, y="subsets_ribo_percent", x= "Sample",
+        colour_by="discard") + ggtitle("Ribo percent"),
+    ncol=2)
+```
+
+```{r Discard low quality cells}
+cortex_f <- cortex[, !cortex$discard]
+cortex_f
+
+# dim: 22966 2361 
+```
+The paper exclude genes that are expressed by fewer than 3 cells
+```{r Remove any gene that was not detected}
+# 0 counts across all barcodes
+set.seed(1234)
+cortex.feat.QC <- scater::perFeatureQCMetrics(cortex_f)
+rowData(cortex_f) <- cbind(rowData(cortex_f), cortex.feat.QC)
+cortex_f <- cortex_f[which(rowData(cortex_f)$detected > 0),]
+cortex_f 
+# dim: 21678 2361 
+```
+
+```{r Doublet detection}
+# Remove doublets - two cells encapsulated in a single droplet.
+set.seed(1234)
+cortex_f <- scDblFinder(cortex_f, samples = cortex_f$Sample)
+table(cortex_f$scDblFinder.class)
+# singlet doublet 
+#    2358       4 
+
+cortex_f <- cortex_f[,cortex_f$scDblFinder.class == "singlet"]
+cortex_f
+# dim: 21678 2357 
+```
+```{r}
+# Remove mito genes
+mitogenes = grepl("Mtch1|Mtch2|Mtfmt|Mtfp1|Mtfr1|Mtg1|Mtif2|Mtif3|Mto1|Mtpap|Mtrf1|Mtrf1l|Mtus1", rownames(cortex_f))
+cortex_f <- cortex_f[!mitogenes,]
+cortex_f
+# dim: 21665 2357 
+```
+```{r}
+# Remove ribo genes
+ribogenes = grepl("^Mrpl|^Mrps|^Rpl|^Rps", rownames(cortex_f))
+cortex_f <- cortex_f[!ribogenes, ] 
+cortex_f
+# dim: 21488 2357
+```
+
+```{r BIOLOGICAL INTEPRETATION}
+table(cortex_f$Sample)
+
+young <- cortex_f[,cortex_f$Sample%in%c("3_10_M", "3_39_F", "3_8_M", "3_9_M")]
+aged <- cortex_f[,cortex_f$Sample%in%c("18_45_M", "18_46_F", "18_47_F", "18_53_M")]
+old <- cortex_f[,cortex_f$Sample%in%c("24_60_M")]
+
+dim(young) # 970 cells
+dim(aged) # 1112 cells
+dim(old) # 274 cells
+```
+```{r}
+saveRDS(cortex_f, file="saved_data/2023-03-22_cortex_pc.rds")
+```

@@ -1,0 +1,297 @@
+---
+title: "05_endo_ArteriovenousZonation"
+author: "Nhi Nguyen"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+endo <- readRDS(file = "saved_data/2023-03-22_endo_functional_clustering.rds")
+endo_corrected_20dim_red <- readRDS(file="saved_data/2023-03-22_endo_dimensionality_reduction_clustered.rds")
+```
+
+## Arteriovenous zonation
+
+```{r}
+# aEC1_string <- "Sncaip Alpl Alox12 B4galnt1 Glul Syt15 Tpgs2 Fam198b Antxr1 Mecom.2 Eml1 Gm609 Rnf144a Stom Prdx4 Aig1 1810011O10Rik Arhgef25 Stc1 Plat Peak1 Tec Efnb2 Fbxo7 Unc5b Tpst1 Hey1 Cpm Hrct1 Unc119b Hbegf Tbxa2r Spry4 Scube2 Plcb1 Hlx Arl15 Tsc22d1 Filip1 A430090L17Rik Plk2 Syne1.1 Slc36a1 Syne1.2 Sez6 Rad54b Gcnt2 Clec1a Tgfb2 Slc12a5 Notch4 Slc48a1 Oas1a Farsb Cdkn1c Eif2b3 Sema3g Amz1 Sh2b3 Adamts1 Irf7 Gprc5b"
+# aEC1_string <-gsub(" ", ",", aEC1_string)
+# 
+# aEC2_string <- "Egr1 Mgst1 St8sia2 Entpd1 Zbp1 Cables2 Cthrc1 Msx1 St8sia6 Cbr3 Irf6 B230206H07Rik Lcat Olfml2a Slc27a3 Col18a1 Fchsd2 Prkcd Ifitm3 Mmrn2 Gata2 Fos Marcks Edn1 Kdm6b Eps8l2 P2ry2 Pfkfb3 Snx10 Ssfa2 Crispld1 Prr13 Atl2 Galk1 Kazald1 Dsp Sncg Rasd1 Nebl Gadd45b Lama3 Bmx Tnfsf13 Gkn3 Tmem100 Ssbp2 Hmgn3 Slc26a10 Pradc1 Ppap2a Fam181b Gpr160 Cp Ppp1r15a Prkcdbp Gulp1 Plcg2 Coro2a Prss23 Stmn1 Crip1 Epb4.1l4a Vegfc Ehd2 Trpv4 Tspo Lima1 Dhh Pdlim2 Ace Npnt Fstl1 Eln Ldb2 Lrrc32 Gadd45g Ldhb Nr4a2 Rcn3 Junb Sat1 Apol9b Myzap Prune2 Fbn1 Dusp26 Mgp Itgb4 Serpinf1 Nos1 Gja5 Fbln5 Gcnt1 Clu Jag1 Mylk Azin1 Arhgap5 Gm14207 Plscr2 Pik3r3 Gja4 Tspan2 Cd24a Fermt3 Pthlh Cdh13 Procr Ltbp4 Btg2 Apold1 Nsg2 Sgce Tm4sf1 Fez1 Zfp771 Rhpn2 Fbln2 Col14a1 Papss2 Mir8112 Atp11a Slc45a4 Atp2a3 8430408G22Rik Jag2 Syt11 Timp3 Tppp3 Nuak1 Oas2 Gper1 Zeb2 Prps2 Nr4a1 Atp13a3 Cyr61 Kank4 Frmd6 Lypd1 Atp2b4 Igfbp3 Slc16a11 Manr C1qtnf9 Ccdc67 Ccnd2 Tmem206 Egfl8 Plscr1 Itpr3 Me1 BC064078 Cdk19 Bhlhe41 Stmn2 Edn3 Cit Sfxn3 Cdc42ep5 Cxxc5 Aif1l Lmo7 Scd1 Tnfrsf26 Gad1 Fhl1 Sept11 Igfbp4"
+# aEC2_string <-gsub(" ", ",", aEC2_string)
+# 
+# vEC_string <- "Fendrr Dixdc1 Nr2f2 Lbp Adk Ltc4s Tspan9 Tcea3 Ndufa8 Lrrc8b Chn2 Prcp Icam1 Il1r1 Cxcl11 Tbc1d2b Nckap5 B130024G19Rik Gm7694 Bst1 Sdk1 Lcn2 Fmo1 Ctsc Gpr182 Gpr126 Gm5127 Cysltr1 Hspb8 Prpf40b Rp1 Mxra8 Prdm5 Itga3 Hs3st1 Anxa2 Golm1 Homer3 4930594C11Rik Atp1b1 Nampt Prrt4 Sytl2 Gjc1 Fam101b Actn1 Klk8 Ddah1 Smagp Ramp3 Neurl2 Dnah6 AW112010 Flrt2 Hif1a Ier3 Nsg1 F5 Net1 Gdap10 Rnase4 Pomc Apod Sema6a Cadm1 Sox9 4930578C19Rik Phlda1 Rbp1 Fam57a Cd38 Fn1 Slc16a12"
+# vEC_string <-gsub(" ", ",", vEC_string)
+# 
+# avEC_string <- "Tmem176b Tgtp1 H2−Q5 H2−Q8 Id2 Ptn Gngt2 Tpd52l1 Frem2 Hyal2 Gm684 Ifi27l2a Tln2 Slc6a6 Car7 Vcam1 Klf4 Rfk P2ry1 Ccdc109b S100a10 Ehd1 Plec S100a11 Pla2g4a Cd9 Gm12250 Pdgfa Ntn1 Thbd C530008M17Rik Aldh1a3 Kcnb1 Tnfrsf11a Klf10 Carhsp1 Aldh1a1 Wnt5a Icosl Cfb Myof Adh1 Epha4 Pvrl2 Tgm2 Slfn2 Vwf Adcy4 Tmem252 Tbx1 Cfh Csf1 Ptgis Rapgef5"
+# avEC_string <-gsub(" ", ",", avEC_string)
+# 
+# capEC_string <- "Dll4 Rasgrp3 Akr1c14 Slc25a33 Smarca2 Ets2 Rcan2 Sema6d Gja1 Enpp2 Angpt2 Col4a3 Prdm1 Cdc42ep3 Hdac9 Pde4b Arhgap18 Bcl2 Htra3 Gpr85 Cyp2d22 Itga4 Trak2 Nrp1 Camk2n1 Nid2 Lrrn3 Plekhh2 Rgcc Stra6 Rgl1 Pcx Slc1a1 Osgin1 Klhl6 Cxcl12 Spry1"
+# capEC_string <-gsub(" ", ",", capEC_string)
+# 
+# vcapEC_string <- "2810025M15Rik Nrp2 Frmd5 Tmem98 Pnkd Atp8a1 Tmem37 Stx3 Pak1 Pitpnm2 Car14 Jak3 Tspan17 Serpinb9 Unc13c Fcgrt Pglyrp1 Kcp Slc40a1 Slc38a3 Ctla2b Tmtc2 Irf5 Nos2 Rell1 Hcn2 Coro2b Baiap2 Rab4a Pfkl Trib2 Prr5l Tmsb10 Ndnf Car4 Slc38a5 Fmo2 Cebpd St6gal1 AU021092 Pcdh19 Igsf5 Odc1 Fam13a Tbx4 Ankrd37 Pmaip1 Grb7 Ivns1abp Cdkn2b Gpr155 Mfsd2a Ddc Slc3a2 Slco2b1 Slc22a8 Nkd1 Slc39a8 Slc16a9 Nostrin Slc7a1 Adamtsl2 Acsl1 Proser2 Ncaph Slc7a5 Hmcn1 Slc25a42 Apcdd1 Bok Alad Gatm Ttyh2 Ctla2a Tfrc Adm Slc16a6 Fhl3 Gpx3 Ackr3 Wdfy1 Meox1 Chst2 Pcdh12 Nid1 Tspan15 Kdr Dusp6 Ctgf Megf6 Tiam1 Cpe Myo1b Aldh4a1 Chst15 Csrp2 Slc16a1 Tbc1d14 Paqr7 Sept4 Smox Cnot6l Cacna1e Abcg1 Fam43a"
+# vcapEC_string <-gsub(" ", ",", vcapEC_string)
+```
+
+```{r}
+# Vanlandewijck_markers <- as.data.frame(aEC1_string)
+# Vanlandewijck_markers <- rbind(Vanlandewijck_markers,aEC2_string,vEC_string,avEC_string,capEC_string,vcapEC_string)
+# colnames(Vanlandewijck_markers) <- "gene_symbols"
+# rownames(Vanlandewijck_markers) <- c("aEC1","aEC2","vEC","avEC","capEC","vcapEC")
+# Vanlandewijck_markers
+# write.csv(Vanlandewijck_markers, file = paste(dir,"Vanlandewijck_markers.csv",sep="/"))
+```
+
+```{r}
+Vanlandewijck_markers <- read.csv(file= "data/Vanlandewijck_markers.csv",header=TRUE)
+
+aEC1_genes <- Vanlandewijck_markers[1,]$gene_symbols
+aEC1_genes <- unlist(strsplit(aEC1_genes, ","))
+# 62 genes
+
+aEC2_genes <- Vanlandewijck_markers[2,]$gene_symbols
+aEC2_genes <- unlist(strsplit(aEC2_genes, ","))
+# 169 genes
+
+vEC_genes <- Vanlandewijck_markers[3,]$gene_symbols
+vEC_genes <- unlist(strsplit(vEC_genes, ","))
+# 73 genes
+
+avEC_genes <- Vanlandewijck_markers[4,]$gene_symbols
+avEC_genes <- unlist(strsplit(avEC_genes, ","))
+# 54 genes
+
+capEC_genes <- Vanlandewijck_markers[5,]$gene_symbols
+capEC_genes <- unlist(strsplit(capEC_genes, ","))
+# 37 genes
+
+vcapEC_genes <- Vanlandewijck_markers[6,]$gene_symbols
+vcapEC_genes <- unlist(strsplit(vcapEC_genes, ","))
+# 105 genes
+```
+
+```{r}
+genes_vector <- aEC1_genes
+genes_vector <- append(genes_vector,aEC2_genes)
+genes_vector <- append(genes_vector,capEC_genes)
+genes_vector <- append(genes_vector,vcapEC_genes)
+genes_vector <- append(genes_vector,vEC_genes)
+genes_vector <- append(genes_vector,avEC_genes)
+
+gene_list <- list("aEC1_genes" = aEC1_genes,"aEC2_genes" = aEC2_genes,"capEC_genes" = capEC_genes, "vcapEC_genes"=vcapEC_genes, "vEC_genes"= vEC_genes, "avEC_genes" = avEC_genes)
+```
+
+```{r Plot heatmap arteriovenous heatmap}
+colLabels(endo) <- colData(endo_corrected_20dim_red)$clustering_20
+endo_markers <- findMarkers(endo, direction="up", lfc=1)
+endo_markers
+endo1_markers <- endo_markers[[1]]
+all_endo_markers_subset <- endo1_markers[rownames(endo1_markers) %in% genes_vector, ]
+
+pdf(file="result/endo/endo_arteriovenous_gene_heatmap",width=15, height=25)
+plotGroupedHeatmap(endo, features=rownames(all_endo_markers_subset), group="label", color = viridis(256),
+    center=TRUE, zlim=c(-1.5, 1.5))
+# Adjust the range of the heatmap
+```
+
+```{r}
+# Consolidate arteriovenous genes
+all.sets <- lapply(names(gene_list), function(x) {
+    GeneSet(gene_list[[x]], setName=x)        
+})
+all.sets <- GeneSetCollection(all.sets)
+
+# Ranking arteriovenous gene expression
+rankings <- AUCell_buildRankings(counts(endo),
+    plotStats=FALSE, verbose=FALSE, splitByBlocks=TRUE)
+
+cell.aucs <- AUCell_calcAUC(all.sets, rankings, aucMaxRank = ceiling(0.1 * nrow(rankings)))
+
+results <- t(assay(cell.aucs))
+
+# Add arteriovenous labels in colData
+new.labels <- colnames(results)[max.col(results)]
+colData(endo)$arteriovenous_clustering <- new.labels
+
+endo
+```
+
+```{r Plot cluster on UMAP}
+endo_corrected_20dim_red$arteriovenous_clustering <- endo$arteriovenous_clustering
+
+pdf(file="result/endo/endo_arteriovenous_clusters_on_umap.pdf",width=7, height=5)
+plotReducedDim(endo_corrected_20dim_red, dimred = "UMAP", colour_by = "arteriovenous_clustering", point_size = 2.5)
+dev.off()
+
+endo_corrected_20dim_red_young <- endo_corrected_20dim_red[,endo_corrected_20dim_red$Sample%in%c("3_10_M", "3_39_F", "3_8_M", "3_9_M")]
+pdf(file="result/endo/endo_arteriovenous_clusters_young_on_umap.pdf",width=7, height=5)
+plotReducedDim(endo_corrected_20dim_red_young, dimred = "UMAP", colour_by = "arteriovenous_clustering", point_size = 2.5)
+dev.off()
+
+endo_corrected_20dim_red_aged <- endo_corrected_20dim_red[,endo_corrected_20dim_red$Sample%in%c("18_45_M", "18_46_F", "18_47_F", "18_53_M")]
+pdf(file="result/endo/endo_arteriovenous_clusters_aged_on_umap.pdf",width=7, height=5)
+plotReducedDim(endo_corrected_20dim_red_aged, dimred = "UMAP", colour_by = "arteriovenous_clustering", point_size = 2.5)
+dev.off()
+
+endo_corrected_20dim_red_old <- endo_corrected_20dim_red[,endo_corrected_20dim_red$Sample%in%c("24_60_M")]
+pdf(file="result/endo/endo_arteriovenous_clusters_old_on_umap.pdf",width=7, height=5)
+plotReducedDim(endo_corrected_20dim_red_old, dimred = "UMAP", colour_by = "arteriovenous_clustering", point_size = 2.5)
+dev.off()
+```
+
+```{r}
+genes_251122_A <- c("Atp2b1", "Apoe", "Abcb1a", "Actb", "Id1", "Col4a2", "Glul", "Klf2", "Sparc", "Ddah1", "Ramp2", "Cldn5", "Cdh5", "Kdr", "Acvrl1", "Ptn", "Actg1", "Gpm6b", "Cfl1", "Rac1", "Itga6", "Arpc2", "Mkln1", "Spock2")
+# pdf(file=paste(dir,"result/endo/new.pdf", sep="/"),width=5, height=20)
+
+vein_ec <- endo[,endo$arteriovenous_clustering%in%c("vEC_genes","vcapEC_genes")]
+vein_ec$age <- recode(vein_ec$age, "3m" = "YOUNG" , "18m" = "OLD", "24m" = "OLD")
+# vein_ec <- vein_ec[,vein_ec$age%in%c("YOUNG", "AGED")]
+
+# scater::plotExpression(vein_ec, genes_251122_B, x = "age", colour_by = "age") 
+# "Mtnr1b"
+
+# Create a list of expression matrices divided by cluster
+genes_251122_A_list <- lapply(unique(colData(vein_ec)$age), function(x) {
+    pick_cells <- which(colData(vein_ec)$age == x)
+    pick_expr <- assay(vein_ec, "logcounts")[genes_251122_A, pick_cells]
+    rwm <- rowMeans(pick_expr) # mean expression
+    rwp <- as.numeric(apply(pick_expr, 1, function(x) sum(x > 0)))/length(pick_cells) * 100 # % of cells in which genes are detected
+    rdf <- as.data.frame(cbind(as.numeric(rwm), as.numeric(rwp), rep(x, length(genes_251122_A)), genes_251122_A))
+    return(rdf)})
+
+# Join all matrices in one dataframe                      
+genes_251122_A_list_df <- do.call(rbind, genes_251122_A_list)
+colnames(genes_251122_A_list_df) <- c("rwm", "rwp", "cluster", "gene")                   
+
+genes_251122_A_list_df$rwm <- as.numeric(genes_251122_A_list_df$rwm)
+genes_251122_A_list_df$rwp <- as.numeric(genes_251122_A_list_df$rwp)
+genes_251122_A_list_df$prod <- genes_251122_A_list_df$rwp * log10(as.numeric(genes_251122_A_list_df$rwm) + 1 ) # percentage * log(mean + 1) as a value for clustering
+
+# Order rows and columns by hierarchical clustering
+gene_order <-  hclust(dist(matrix(genes_251122_A_list_df$prod, nrow = length(genes_251122_A))))$order
+cluster_order <- hclust(dist(t(matrix(genes_251122_A_list_df$prod, nrow = length(genes_251122_A)))))$order
+genes_251122_A_list_df$gene <- factor(tolower(genes_251122_A_list_df$gene), levels = tolower(genes_251122_A_list_df$gene)[gene_order])
+genes_251122_A_list_df$cluster <- factor(genes_251122_A_list_df$cluster, levels = unique(genes_251122_A_list_df$cluster)[cluster_order])
+
+pdf("result/endo/genes_2022-11-25/Gene_expression_in_vEC_A.pdf",width=25, height=15)
+ggplot(genes_251122_A_list_df, aes(col = rwm, size = rwp, x = cluster, y = gene)) +
+geom_point() +
+scale_size_continuous(limits = c(0,100), range = c(0,25), breaks = c(0, 25, 50, 75, 100)) +
+scale_color_gradient(low="blue", high="red") +
+labs(x = "Cluster", y = "", size = "Percentage expressing", colour = "Mean log-normalized expression") +
+theme(legend.key=element_blank(),
+  axis.text.x = element_text(colour = "black", size = 16, face = "bold", angle = 90),
+  axis.text.y = element_text(colour = "black", face = "italic", size = 16),
+  legend.text = element_text(size = 16, colour ="black"),
+  legend.title = element_text(size = 16),
+  panel.background = element_blank(),
+  panel.border = element_rect(colour = "black", fill = NA, size = 1.2),
+  legend.position = "right") + 
+  coord_flip() +
+ggtitle("(A) Gene expression in vEC")
+```
+
+```{r}
+genes_251122_B <- c("Il1r1", "Kdr", "Hsp90ab1", "Klf2", "Arhgef2", "Cdh5", "Actg1", "Actb", "Myl6", "Arpc2", "Myl12b", "Cldn5", "Gnai2", "Rac1", "Calm1", "Atp5h", "Slc25a4", "Atp5j", "Ndufa4", "Ndufa8", "Apoe", "Cox4i1", "Atp5g2", "Uqcrh", "Atp5e", "Ndufb9", "Cox7c", "Ubb", "Ubc", "Rps27a", "Uba52")
+
+vein_ec <- endo[,endo$arteriovenous_clustering%in%c("vEC_genes","vcapEC_genes")]
+vein_ec$age <- recode(vein_ec$age, "3m" = "YOUNG" , "18m" = "OLD", "24m" = "OLD")
+# vein_ec <- vein_ec[,vein_ec$age%in%c("YOUNG", "AGED")]
+
+# scater::plotExpression(vein_ec, genes_251122_B, x = "age", colour_by = "age") 
+# "Sem1"
+
+# Create a list of expression matrices divided by cluster
+genes_251122_B_list <- lapply(unique(colData(vein_ec)$age), function(x) {
+    pick_cells <- which(colData(vein_ec)$age == x)
+    pick_expr <- assay(vein_ec, "logcounts")[genes_251122_B, pick_cells]
+    rwm <- rowMeans(pick_expr) # mean expression
+    rwp <- as.numeric(apply(pick_expr, 1, function(x) sum(x > 0)))/length(pick_cells) * 100 # % of cells in which genes are detected
+    rdf <- as.data.frame(cbind(as.numeric(rwm), as.numeric(rwp), rep(x, length(genes_251122_B)), genes_251122_B))
+    return(rdf)})
+
+# Join all matrices in one dataframe                      
+genes_251122_B_list_df <- do.call(rbind, genes_251122_B_list)
+colnames(genes_251122_B_list_df) <- c("rwm", "rwp", "cluster", "gene")                   
+
+genes_251122_B_list_df$rwm <- as.numeric(genes_251122_B_list_df$rwm)
+genes_251122_B_list_df$rwp <- as.numeric(genes_251122_B_list_df$rwp)
+genes_251122_B_list_df$prod <- genes_251122_B_list_df$rwp * log10(as.numeric(genes_251122_B_list_df$rwm) + 1 ) # percentage * log(mean + 1) as a value for clustering
+
+# Order rows and columns by hierarchical clustering
+gene_order <-  hclust(dist(matrix(genes_251122_B_list_df$prod, nrow = length(genes_251122_B))))$order
+cluster_order <- hclust(dist(t(matrix(genes_251122_B_list_df$prod, nrow = length(genes_251122_B)))))$order
+genes_251122_B_list_df$gene <- factor(tolower(genes_251122_B_list_df$gene), levels = tolower(genes_251122_B_list_df$gene)[gene_order])
+genes_251122_B_list_df$cluster <- factor(genes_251122_B_list_df$cluster, levels = unique(genes_251122_B_list_df$cluster)[cluster_order])
+
+pdf("result/endo/genes_2022-11-25/Gene_expression_in_vEC_B.pdf",width=25, height=15)
+ggplot(genes_251122_B_list_df, aes(col = rwm, size = rwp, x = cluster, y = gene)) +
+geom_point() +
+scale_size_continuous(limits = c(0,100), range = c(0,20), breaks = c(0, 25, 50, 75, 100)) +
+scale_color_gradient(low="blue", high="red") +
+labs(x = "Cluster", y = "", size = "Percentage expressing", colour = "Mean log-normalized expression") +
+theme(legend.key=element_blank(),
+  axis.text.x = element_text(colour = "black", size = 16, face = "bold", angle = 90),
+  axis.text.y = element_text(colour = "black", face = "italic", size = 16),
+  legend.text = element_text(size = 16, colour ="black"),
+  legend.title = element_text(size = 16),
+  panel.background = element_blank(),
+  panel.border = element_rect(colour = "black", fill = NA, size = 1.2),
+  legend.position = "right") + 
+  coord_flip() +
+ggtitle("(B) Gene expression in vEC")
+
+```
+
+```{r BIOLOGICAL INTERPRETATION}
+young4 <- endo_corrected_20dim_red[,endo_corrected_20dim_red$Sample%in%c("3_10_M", "3_39_F", "3_8_M", "3_9_M")]
+aged4 <- endo_corrected_20dim_red[,endo_corrected_20dim_red$Sample%in%c("18_45_M", "18_46_F", "18_47_F", "18_53_M")]
+old4 <- endo_corrected_20dim_red[,endo_corrected_20dim_red$Sample%in%c("24_60_M")]
+
+table(young4$arteriovenous_clustering)
+table(aged4$arteriovenous_clustering)
+table(old4$arteriovenous_clustering)
+
+young4 <- as.data.frame(table(young4$arteriovenous_clustering))
+colnames(young4) <- c("arteriovenous_zonation","young")
+aged4 <- as.data.frame(table(aged4$arteriovenous_clustering))
+colnames(aged4) <- c("arteriovenous_zonation","aged")
+old4 <- as.data.frame(table(old4$arteriovenous_clustering))
+colnames(old4) <- c("arteriovenous_zonation","old")
+
+#put all data frames into list
+arteriovenous_zonation_per_age_group <- list(young4, aged4, old4)
+
+#merge all data frames in list
+arteriovenous_zonation_per_age_group <- arteriovenous_zonation_per_age_group %>% reduce(full_join, by='arteriovenous_zonation')
+
+arteriovenous_zonation_per_age_group
+
+write.csv(arteriovenous_zonation_per_age_group, file = "result/endo/arteriovenous_zonation_per_age_group.csv")
+```
+```{r BIOLOGICAL INTERPRETATION}
+# # Young
+# transporting_y <- endo_corrected_20dim_red_young[,endo_corrected_20dim_red_young$cluster_labels%in%c("Transporting BEC")]
+# migrative_y <- endo_corrected_20dim_red_young[,endo_corrected_20dim_red_young$cluster_labels%in%c("Migrative BEC")]
+# oxphos_y <- endo_corrected_20dim_red_young[,endo_corrected_20dim_red_young$cluster_labels%in%c("OXPHOS BEC")]
+# 
+# table(transporting_y$arteriovenous_clustering)
+# table(migrative_y$arteriovenous_clustering)
+# table(oxphos_y$arteriovenous_clustering)
+# 
+# # Old
+# transporting_o <- endo_corrected_20dim_red_old[,endo_corrected_20dim_red_old$cluster_labels%in%c("Transporting BEC")]
+# migr202135ative_o <- endo_corrected_20dim_red_old[,endo_corrected_20dim_red_old$cluster_labels%in%c("Migrative BEC")]
+# oxphos_o <- endo_corrected_20dim_red_old[,endo_corrected_20dim_red_old$cluster_labels%in%c("OXPHOS BEC")]
+# 
+# table(transporting_o$arteriovenous_clustering)
+# table(migrative_o$arteriovenous_clustering)
+# table(oxphos_o$arteriovenous_clustering)
+```
+
+```{r}
+saveRDS(endo,file="saved_data/2023-03-22_endo_arteriovenouse_zonation.rds")
+```

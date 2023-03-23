@@ -1,0 +1,7 @@
+"","ID","Description","GeneRatio","BgRatio","pvalue","p.adjust","qvalue","geneID","Count"
+"GO:0016324","GO:0016324","apical plasma membrane","14/185","369/28739",1.36099747925623e-07,3.74274306795462e-05,2.92256300808705e-05,"Car4/Slc22a8/Slc16a1/Slc38a3/Slc3a2/Slc7a5/Slc1a1/Slc7a1/Slc9a3r2/Abcb1a/Notch1/Anxa4/Osmr/Abcg2",14
+"GO:0045177","GO:0045177","apical part of cell","15/185","487/28739",6.88614538187141e-07,9.46844990007319e-05,7.39354556790404e-05,"Car4/Slc22a8/Slc16a1/Slc38a3/Slc3a2/Slc7a5/Slc1a1/Slc7a1/Slc9a3r2/Abcb1a/Notch1/Anxa4/Osmr/Myo1b/Abcg2",15
+"GO:0062023","GO:0062023","collagen-containing extracellular matrix","13/185","396/28739",1.94391618844806e-06,0.000178192317274406,0.000139143474541545,"Hmcn1/Spock2/Sema3c/Sparcl1/Plscr1/Anxa4/Anxa5/Adamts1/Vwa1/S100a11/Vwf/Ctsc/Anxa2",13
+"GO:0009925","GO:0009925","basal plasma membrane","10/185","276/28739",1.31206217254777e-05,0.00090204274362659,0.000704370218946696,"Slc22a8/Slc16a1/Slc38a3/Slc3a2/Slc7a5/Slc40a1/Tfrc/Slc7a1/Slco1a4/Anxa2",10
+"GO:0045178","GO:0045178","basal part of cell","10/185","301/28739",2.7580574947016e-05,0.00151693162208588,0.00118451311351395,"Slc22a8/Slc16a1/Slc38a3/Slc3a2/Slc7a5/Slc40a1/Tfrc/Slc7a1/Slco1a4/Anxa2",10
+"GO:0016323","GO:0016323","basolateral plasma membrane","9/185","246/28739",3.31324263553291e-05,0.00151856954128592,0.00118579210113809,"Slc22a8/Slc16a1/Slc38a3/Slc3a2/Slc7a5/Slc40a1/Tfrc/Slc7a1/Anxa2",9

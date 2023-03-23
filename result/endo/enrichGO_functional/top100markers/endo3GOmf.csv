@@ -1,0 +1,3 @@
+"","ID","Description","GeneRatio","BgRatio","pvalue","p.adjust","qvalue","geneID","Count"
+"GO:0048306","GO:0048306","calcium-dependent protein binding","5/84","95/28275",9.63592535609032e-06,0.0027847824279101,0.00233290824410608,"Stmn2/Mgp/S100a11/S100a10/S100a16",5
+"GO:0005112","GO:0005112","Notch binding","3/84","24/28275",4.89355499072577e-05,0.00707118696159874,0.00592377709403646,"Jag1/Dll4/Jag2",3
