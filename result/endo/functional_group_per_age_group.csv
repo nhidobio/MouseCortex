@@ -1,4 +1,5 @@
-"","functional_group","young","aged","old"
-"1","ECM-Reorganizing BEC",13,142,17
-"2","Migrating-Angiogenic BEC",18,82,14
-"3","Transporting BEC",57,185,24
+,functional_group,young,aged,old,,functional_group,young,aged,old
+1,ECM-Reorganizing BEC,13,142,17,,ECM-Reorganizing BEC,14.77272727,34.71882641,30.90909091
+2,Migrating-Angiogenic BEC,18,82,14,,Migrating-Angiogenic BEC,20.45454545,20.04889976,25.45454545
+3,Transporting BEC,57,185,24,,Transporting BEC,64.77272727,45.23227384,43.63636364
+,Sum,88,409,55,,,,,

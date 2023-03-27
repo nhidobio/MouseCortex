@@ -224,9 +224,17 @@ aged <- cortex_f[,cortex_f$Sample%in%c("18_45_M", "18_46_F", "18_47_F", "18_53_M
 old <- cortex_f[,cortex_f$Sample%in%c("24_60_M")]
 
 dim(young) # 970 cells
-dim(aged) # 1112 cells
+dim(aged) # 1114 cells
 dim(old) # 274 cells
 ```
+
+```{r}
+cell_no_qc <- rbind("Pre-f cell count" = table(cortex$Sample),"Post-f cell count" = table(cortex_f$Sample))
+Age_group <- c(rep("aged",4),rep("old",1),rep("young",4))
+cell_no_qc <- rbind(cell_no_qc,Age_group)
+write.csv(cell_no_qc,file="result/quality_control/cell_number_per_sample_pre_post_filtering.csv")
+```
+
 ```{r}
 saveRDS(cortex_f, file="saved_data/2023-03-22_cortex_pc.rds")
 ```

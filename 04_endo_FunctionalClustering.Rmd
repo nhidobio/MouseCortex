@@ -650,7 +650,7 @@ endo3GObp <- enrichGO(gene = endo3_top200markers,
                       qvalueCutoff  = 0.05,
                       readable      = TRUE)
 write.csv(endo3GObp, file = paste(dir, "result/endo/enrichGO_functional/top200markers/endo3GObp.csv", sep="/"))
-pdf(file = paste(dir,"result/endo/enrichGO_functional/top200markers/endo3GObp.pdf",sep="/"),width=15, height=10)
+pdf(file = paste(dir,"result/endo/enrichGO_functional/top200markers/endo3GObp.pdf",sep="/"),width=20, height=13)
 barplot(endo3GObp, showCategory=20) + theme(axis.text.x=element_text(size=12),axis.text.y=element_text(size=16))
 ```
 

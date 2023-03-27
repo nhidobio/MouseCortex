@@ -1,7 +1,8 @@
-"","arteriovenous_zonation","young","aged","old"
-"1","aEC1_genes",14,49,6
-"2","aEC2_genes",2,22,7
-"3","avEC_genes",4,67,15
-"4","capEC_genes",14,53,2
-"5","vcapEC_genes",51,213,23
-"6","vEC_genes",3,5,2
+,arteriovenous_zonation,young,aged,old,,arteriovenous_zonation,young,aged,old
+1,aEC1_genes,14,49,6,,aEC1_genes,15.90909091,11.9804401,10.90909091
+2,aEC2_genes,2,22,7,,aEC2_genes,2.272727273,5.378973105,12.72727273
+3,avEC_genes,4,67,15,,avEC_genes,4.545454545,16.38141809,27.27272727
+4,capEC_genes,14,53,2,,capEC_genes,15.90909091,12.95843521,3.636363636
+5,vcapEC_genes,51,213,23,,vcapEC_genes,57.95454545,52.07823961,41.81818182
+6,vEC_genes,3,5,2,,vEC_genes,3.409090909,1.222493888,3.636363636
+,sum,88,409,55,,,,,

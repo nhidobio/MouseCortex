@@ -273,23 +273,53 @@ arteriovenous_zonation_per_age_group
 write.csv(arteriovenous_zonation_per_age_group, file = "result/endo/arteriovenous_zonation_per_age_group.csv")
 ```
 ```{r BIOLOGICAL INTERPRETATION}
-# # Young
-# transporting_y <- endo_corrected_20dim_red_young[,endo_corrected_20dim_red_young$cluster_labels%in%c("Transporting BEC")]
-# migrative_y <- endo_corrected_20dim_red_young[,endo_corrected_20dim_red_young$cluster_labels%in%c("Migrative BEC")]
-# oxphos_y <- endo_corrected_20dim_red_young[,endo_corrected_20dim_red_young$cluster_labels%in%c("OXPHOS BEC")]
-# 
-# table(transporting_y$arteriovenous_clustering)
-# table(migrative_y$arteriovenous_clustering)
-# table(oxphos_y$arteriovenous_clustering)
-# 
-# # Old
-# transporting_o <- endo_corrected_20dim_red_old[,endo_corrected_20dim_red_old$cluster_labels%in%c("Transporting BEC")]
-# migr202135ative_o <- endo_corrected_20dim_red_old[,endo_corrected_20dim_red_old$cluster_labels%in%c("Migrative BEC")]
-# oxphos_o <- endo_corrected_20dim_red_old[,endo_corrected_20dim_red_old$cluster_labels%in%c("OXPHOS BEC")]
-# 
-# table(transporting_o$arteriovenous_clustering)
-# table(migrative_o$arteriovenous_clustering)
-# table(oxphos_o$arteriovenous_clustering)
+# Young
+First_functional_group_y <- endo_corrected_20dim_red_young[,endo_corrected_20dim_red_young$cluster_labels%in%c(labels(table(endo_corrected_20dim_red_young$cluster_labels)[1]))]
+
+Second_functional_group_y <- endo_corrected_20dim_red_young[,endo_corrected_20dim_red_young$cluster_labels%in%c(labels(table(endo_corrected_20dim_red_young$cluster_labels)[2]))]
+
+Third_functional_group_y <- endo_corrected_20dim_red_young[,endo_corrected_20dim_red_young$cluster_labels%in%c(labels(table(endo_corrected_20dim_red_young$cluster_labels)[3]))]
+
+young_first_table <- as.data.frame(table(First_functional_group_y$arteriovenous_clustering))
+young_second_table <- as.data.frame(table(Second_functional_group_y$arteriovenous_clustering))
+young_third_table <- as.data.frame(table(Third_functional_group_y$arteriovenous_clustering))
+young_functional_vs_arteriovenous <- merge(young_first_table,young_second_table, by="Var1",all.x = TRUE, all.y = TRUE)
+young_functional_vs_arteriovenous <- merge(young_functional_vs_arteriovenous,young_third_table, by="Var1",all.x = TRUE, all.y = TRUE)
+colnames(young_functional_vs_arteriovenous) <- c("arteriovenous_group",labels(table(endo_corrected_20dim_red_young$cluster_labels)[1]),labels(table(endo_corrected_20dim_red_young$cluster_labels)[2]),labels(table(endo_corrected_20dim_red_young$cluster_labels)[3]))
+
+write.csv(young_functional_vs_arteriovenous,file="result/endo/arteriovenous_vs_functional_in_young_age_group.csv")
+
+# Aged
+First_functional_group_a <- endo_corrected_20dim_red_aged[,endo_corrected_20dim_red_aged$cluster_labels%in%c(labels(table(endo_corrected_20dim_red_aged$cluster_labels)[1]))]
+
+Second_functional_group_a <- endo_corrected_20dim_red_aged[,endo_corrected_20dim_red_aged$cluster_labels%in%c(labels(table(endo_corrected_20dim_red_aged$cluster_labels)[2]))]
+
+Third_functional_group_a <- endo_corrected_20dim_red_aged[,endo_corrected_20dim_red_aged$cluster_labels%in%c(labels(table(endo_corrected_20dim_red_aged$cluster_labels)[3]))]
+
+aged_first_table <- as.data.frame(table(First_functional_group_a$arteriovenous_clustering))
+aged_second_table <- as.data.frame(table(Second_functional_group_a$arteriovenous_clustering))
+aged_third_table <- as.data.frame(table(Third_functional_group_a$arteriovenous_clustering))
+aged_functional_vs_arteriovenous <- merge(aged_first_table,aged_second_table, by="Var1",all.x = TRUE, all.y = TRUE)
+aged_functional_vs_arteriovenous <- merge(aged_functional_vs_arteriovenous,aged_third_table, by="Var1",all.x = TRUE, all.y = TRUE)
+colnames(aged_functional_vs_arteriovenous) <- c("arteriovenous_group",labels(table(endo_corrected_20dim_red_aged$cluster_labels)[1]),labels(table(endo_corrected_20dim_red_aged$cluster_labels)[2]),labels(table(endo_corrected_20dim_red_aged$cluster_labels)[3]))
+
+write.csv(aged_functional_vs_arteriovenous,file="result/endo/arteriovenous_vs_functional_in_aged_age_group.csv")
+
+# Old
+First_functional_group_o <- endo_corrected_20dim_red_old[,endo_corrected_20dim_red_old$cluster_labels%in%c(labels(table(endo_corrected_20dim_red_old$cluster_labels)[1]))]
+
+Second_functional_group_o <- endo_corrected_20dim_red_old[,endo_corrected_20dim_red_old$cluster_labels%in%c(labels(table(endo_corrected_20dim_red_old$cluster_labels)[2]))]
+
+Third_functional_group_o <- endo_corrected_20dim_red_old[,endo_corrected_20dim_red_old$cluster_labels%in%c(labels(table(endo_corrected_20dim_red_old$cluster_labels)[3]))]
+
+old_first_table <- as.data.frame(table(First_functional_group_o$arteriovenous_clustering))
+old_second_table <- as.data.frame(table(Second_functional_group_o$arteriovenous_clustering))
+old_third_table <- as.data.frame(table(Third_functional_group_o$arteriovenous_clustering))
+old_functional_vs_arteriovenous <- merge(old_first_table,old_second_table, by="Var1",all.x = TRUE, all.y = TRUE)
+old_functional_vs_arteriovenous <- merge(old_functional_vs_arteriovenous,old_third_table, by="Var1",all.x = TRUE, all.y = TRUE)
+colnames(old_functional_vs_arteriovenous) <- c("arteriovenous_group",labels(table(endo_corrected_20dim_red_old$cluster_labels)[1]),labels(table(endo_corrected_20dim_red_old$cluster_labels)[2]),labels(table(endo_corrected_20dim_red_old$cluster_labels)[3]))
+
+write.csv(old_functional_vs_arteriovenous,file="result/endo/arteriovenous_vs_functional_in_old_age_group.csv")
 ```
 
 ```{r}
